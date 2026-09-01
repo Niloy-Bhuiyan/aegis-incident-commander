@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+.vite/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Local data & secrets
+.env
+.env.local
+*.db
+*.sqlite3
+aegis.db*
+backend/aegis.db*
+eval_reports/*.json
+!eval_reports/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

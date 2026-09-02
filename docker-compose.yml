@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aegis-local}
+      POSTGRES_DB: aegis
+    volumes:
+      - aegis-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U aegis -d aegis']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      AEGIS_DATABASE_URL: postgresql+asyncpg://aegis:${POSTGRES_PASSWORD:-aegis-local}@db:5432/aegis
+      AEGIS_API_TOKEN: ${AEGIS_API_TOKEN:-dev-local-token}
+      AEGIS_CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+      AEGIS_TICK_SECONDS: '2.0'
+      # Unset ANTHROPIC_API_KEY runs the offline heuristic provider.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AEGIS_LLM_MODEL: ${AEGIS_LLM_MODEL:-claude-opus-5}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+    ports:
+      - '8000:8000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+        VITE_AEGIS_API_TOKEN: ${AEGIS_API_TOKEN:-dev-local-token}
+    ports:
+      - '8080:80'
+    depends_on:
+      - backend
+
+volumes:
+  aegis-db:

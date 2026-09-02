@@ -1,0 +1,52 @@
+# Render blueprint: managed PostgreSQL, the API as a Docker service, and the
+# frontend as a static site. Apply with "render blueprint launch" or by pointing
+# a Render Blueprint at this repository.
+#
+# Not yet deployed - see README, Deployment.
+
+databases:
+  - name: aegis-db
+    databaseName: aegis
+    user: aegis
+    plan: free
+
+services:
+  - type: web
+    name: aegis-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: AEGIS_DATABASE_URL
+        fromDatabase:
+          name: aegis-db
+          property: connectionString
+      - key: AEGIS_API_TOKEN
+        generateValue: true
+      - key: AEGIS_CORS_ORIGINS
+        value: https://aegis-console.onrender.com
+      - key: AEGIS_TICK_SECONDS
+        value: '2.0'
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: AEGIS_LLM_MODEL
+        value: claude-opus-5
+      - key: VOYAGE_API_KEY
+        sync: false
+
+  - type: web
+    name: aegis-console
+    runtime: static
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://aegis-api.onrender.com
+      - key: VITE_AEGIS_API_TOKEN
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

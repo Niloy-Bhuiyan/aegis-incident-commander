@@ -273,7 +273,7 @@ export function IncidentInvestigation() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h1
-              className="text-[21px] leading-tight font-semibold tracking-tight text-ink"
+              className="text-[24px] leading-tight font-bold tracking-tight text-ink"
               data-testid="incident-title"
             >
               {incident.title}

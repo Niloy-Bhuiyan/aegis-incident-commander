@@ -19,7 +19,7 @@ export function KnowledgeBase() {
   return (
     <div className="space-y-7">
       <header>
-        <h1 className="text-[21px] leading-tight font-semibold tracking-tight text-ink">
+        <h1 className="text-[24px] leading-tight font-bold tracking-tight text-ink">
           Knowledge Base
         </h1>
         <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-ink-3">

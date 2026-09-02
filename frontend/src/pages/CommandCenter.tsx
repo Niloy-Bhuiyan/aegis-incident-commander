@@ -59,7 +59,9 @@ function NextStep({ incident, healthy }: { incident?: IncidentSummary; healthy: 
           ? 'Nothing is wrong right now. Break something to watch Aegis detect it, investigate, and propose a fix.'
           : 'A service is outside its SLO. Aegis opens an incident once the breach holds for three samples.'}
       </p>
-      <Button onClick={() => navigate('/lab')}>Open Demo Lab</Button>
+      <Button variant="primary" onClick={() => navigate('/lab')}>
+        Open Demo Lab
+      </Button>
     </div>
   )
 }
@@ -128,7 +130,7 @@ export function CommandCenter() {
   return (
     <div className="space-y-7">
       <header>
-        <h1 className="text-[21px] leading-tight font-semibold tracking-tight text-ink">
+        <h1 className="text-[24px] leading-tight font-bold tracking-tight text-ink">
           Command Center
         </h1>
         <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-ink-3">

@@ -1,43 +1,57 @@
 @import 'tailwindcss';
 
 /* ---------------------------------------------------------------------------
-   Aegis — minimal.
+   Aegis.
 
-   White ground, hairline rules, black text. No gradients, no shadows, no
-   coloured panels. Hierarchy comes from type and whitespace; colour appears
-   only where it carries meaning, and then only as a small dot or a single word.
-   The interface should be legible at a glance to someone who has never seen it.
+   Minimal, but not colourless. A clean neutral ground, white panels, near-black
+   text — and one confident orange that carries every interactive thing on the
+   screen: the primary action, the active page, links, focus. Because the accent
+   only ever means "you can act here", the eye learns it in about two seconds.
+
+   Status keeps its own palette (green / amber / red / blue) and always appears
+   as a dot beside a word, so meaning never depends on telling hues apart.
 --------------------------------------------------------------------------- */
 
 @theme {
-  --color-page: #ffffff;
-  --color-sunken: #fafafa;
-  --color-line: #e8e8e6;
-  --color-line-strong: #d4d4d1;
+  /* Grounds. Cool and clean — no beige. */
+  --color-page: #ffffff; /* panels and chrome */
+  --color-canvas: #f7f7f9; /* application ground */
+  --color-sunken: #f1f1f4; /* wells inside a panel */
+  --color-line: #e7e7ec;
+  --color-line-strong: #d3d3db;
 
-  --color-ink: #16161a;
-  --color-ink-2: #61616b;
-  --color-ink-3: #92929c;
+  /* Ink. Near-black, crisp. */
+  --color-ink: #0f0f13;
+  --color-ink-2: #55555f;
+  --color-ink-3: #8a8a96;
 
-  /* Status. Used as a dot, a word, or a single figure — never as a fill. */
-  --color-ok: #1a7f4b;
-  --color-warn: #9a6200;
-  --color-alarm: #c1272d;
-  --color-info: #2b5fd9;
+  /* Brand. Every interactive affordance, and nothing else. */
+  --color-accent: #ea5b1c;
+  --color-accent-hover: #cf4d13;
+  --color-accent-soft: #fff2eb;
+  --color-accent-line: #ffd2b8;
 
-  /* Faint grounds, reserved for the one thing on a page that needs attention. */
-  --color-ok-bg: #f3faf6;
-  --color-warn-bg: #fdf8ef;
-  --color-alarm-bg: #fdf5f5;
-  --color-info-bg: #f4f7fe;
-  --color-info-line: #cddcf8;
+  /* Status. A dot, a word, or a single figure — never a fill. */
+  --color-ok: #0f7a41;
+  --color-warn: #9a6300;
+  --color-alarm: #cc2b2b;
+  --color-info: #2563eb;
+
+  --color-ok-bg: #eefaf2;
+  --color-warn-bg: #fdf6e7;
+  --color-alarm-bg: #fdf0ef;
+  --color-info-bg: #eff4ff;
+  --color-info-line: #cddcfb;
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
 
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --shadow-panel: 0 1px 2px rgb(15 15 19 / 0.04), 0 1px 3px rgb(15 15 19 / 0.03);
+  --shadow-raised: 0 2px 4px rgb(15 15 19 / 0.04), 0 10px 24px -8px rgb(15 15 19 / 0.12);
 }
 
 @layer base {
@@ -49,18 +63,21 @@
 
   body {
     margin: 0;
-    background: var(--color-page);
+    background: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-size: 14px;
     line-height: 1.6;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.011em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   h1 {
-    letter-spacing: -0.025em;
+    letter-spacing: -0.028em;
+  }
+  h2 {
+    letter-spacing: -0.016em;
   }
 
   .tnum {
@@ -72,9 +89,9 @@
   }
 
   :focus-visible {
-    outline: 1.5px solid var(--color-ink);
+    outline: 2px solid var(--color-accent);
     outline-offset: 2px;
-    border-radius: 3px;
+    border-radius: 4px;
   }
 
   button:not(:disabled),
@@ -92,18 +109,38 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #dcdcda;
+    background: #d6d6dd;
     border: 3px solid transparent;
     background-clip: content-box;
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #c2c2bf;
+    background: #bcbcc6;
     background-clip: content-box;
   }
 }
 
 @layer components {
+  .panel {
+    background: var(--color-page);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .raise {
+    transition:
+      box-shadow 180ms ease,
+      border-color 180ms ease;
+  }
+  .raise:hover {
+    box-shadow: var(--shadow-raised);
+    border-color: var(--color-line-strong);
+  }
+
+  /* The active page is marked in the accent, so the sidebar reads at a glance. */
+  .nav-active {
+    box-shadow: inset 2px 0 0 var(--color-accent);
+  }
+
   /* The only motion in the product: a live-data heartbeat. */
   .pulse-dot {
     animation: aegis-pulse 2.6s ease-in-out infinite;
@@ -117,7 +154,8 @@
     height: 19px;
     padding: 0 5px;
     border: 1px solid var(--color-line-strong);
-    border-radius: 4px;
+    border-radius: 5px;
+    background: var(--color-page);
     color: var(--color-ink-2);
     font-family: var(--font-mono);
     font-size: 10px;
@@ -156,9 +194,9 @@
 }
 .react-flow__controls {
   border: 1px solid var(--color-line);
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: none;
+  box-shadow: var(--shadow-panel);
 }
 .react-flow__controls-button {
   background: var(--color-page);

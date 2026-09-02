@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300" role="img" aria-labelledby="t d">
+  <title id="t">Aegis — Autonomous AI Incident Commander</title>
+  <desc id="d">Detect, investigate, propose, approve, verify: the incident pipeline, with a pulse travelling along it.</desc>
+
+  <style>
+    .ink   { fill: #1b1a16; }
+    .ink2  { fill: #5b5648; }
+    .ink3  { fill: #8a8474; }
+    .bronze{ fill: #9a7b4f; }
+    .sans  { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif; }
+    .mono  { font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace; }
+
+    .wordmark { font-size: 76px; font-weight: 700; letter-spacing: -2.5px; }
+    .tagline  { font-size: 19px; font-weight: 400; }
+    .kicker   { font-size: 12.5px; font-weight: 600; letter-spacing: 2.6px; }
+    .stage    { font-size: 12px; font-weight: 500; letter-spacing: 0.3px; }
+    .meta     { font-size: 11.5px; }
+
+    /* A pulse runs the length of the pipeline, then each stage lights in turn. */
+    @keyframes travel {
+      0%        { transform: translateX(0);    opacity: 0; }
+      6%        {                              opacity: 1; }
+      94%       {                              opacity: 1; }
+      100%      { transform: translateX(464px); opacity: 0; }
+    }
+    @keyframes light {
+      0%, 12%, 100% { fill: #c7c0b0; r: 6; }
+      4%            { fill: #9a7b4f; r: 8.5; }
+    }
+    @keyframes labelLight {
+      0%, 12%, 100% { fill: #8a8474; }
+      4%            { fill: #1b1a16; }
+    }
+    @keyframes heartbeat {
+      0%, 100% { opacity: 1;    transform: scale(1); }
+      50%      { opacity: 0.35; transform: scale(0.82); }
+    }
+    @keyframes draw {
+      to { stroke-dashoffset: 0; }
+    }
+
+    .runner  { animation: travel 5s cubic-bezier(0.45, 0, 0.15, 1) infinite; }
+    .beat    { animation: heartbeat 2.6s ease-in-out infinite; transform-origin: 62px 96px; }
+    .rail    { stroke-dasharray: 464; stroke-dashoffset: 464; animation: draw 1.4s ease-out forwards; }
+
+    .n0 { animation: light 5s linear infinite; }
+    .n1 { animation: light 5s linear infinite 1s; }
+    .n2 { animation: light 5s linear infinite 2s; }
+    .n3 { animation: light 5s linear infinite 3s; }
+    .n4 { animation: light 5s linear infinite 4s; }
+    .l0 { animation: labelLight 5s linear infinite; }
+    .l1 { animation: labelLight 5s linear infinite 1s; }
+    .l2 { animation: labelLight 5s linear infinite 2s; }
+    .l3 { animation: labelLight 5s linear infinite 3s; }
+    .l4 { animation: labelLight 5s linear infinite 4s; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .runner, .beat, .rail,
+      .n0, .n1, .n2, .n3, .n4,
+      .l0, .l1, .l2, .l3, .l4 { animation: none; }
+      .rail { stroke-dashoffset: 0; }
+      .runner { opacity: 0; }
+    }
+  </style>
+
+  <defs>
+    <pattern id="grid" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#d8d2c4" />
+    </pattern>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#edeae2" stop-opacity="0" />
+      <stop offset="70%" stop-color="#edeae2" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#edeae2" stop-opacity="1" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="300" fill="#edeae2" />
+  <rect width="1200" height="300" fill="url(#grid)" opacity="0.55" />
+  <rect x="600" width="600" height="300" fill="url(#fade)" />
+
+  <!-- Left: identity -->
+  <g class="sans">
+    <circle class="bronze beat" cx="62" cy="96" r="7" />
+    <text class="ink3 kicker" x="82" y="101">AUTONOMOUS INCIDENT RESPONSE</text>
+    <text class="ink wordmark" x="58" y="178">Aegis</text>
+    <text class="ink2 tagline" x="62" y="216">Finds the cause. Cites the evidence. Waits for your approval.</text>
+    <text class="ink3 meta mono" x="62" y="248">
+      deterministic detection · hybrid retrieval · adversarial critic · human gate
+    </text>
+  </g>
+
+  <!-- Right: the pipeline, drawn once then pulsed -->
+  <g transform="translate(660, 150)">
+    <line class="rail" x1="0" y1="0" x2="464" y2="0" stroke="#c7c0b0" stroke-width="1.5" />
+
+    <circle class="runner" cx="0" cy="0" r="4" fill="#9a7b4f" />
+
+    <g class="sans">
+      <circle class="n0" cx="0" cy="0" r="6" fill="#c7c0b0" />
+      <text class="l0 stage" x="0" y="30" text-anchor="middle" fill="#8a8474">Detect</text>
+
+      <circle class="n1" cx="116" cy="0" r="6" fill="#c7c0b0" />
+      <text class="l1 stage" x="116" y="30" text-anchor="middle" fill="#8a8474">Investigate</text>
+
+      <circle class="n2" cx="232" cy="0" r="6" fill="#c7c0b0" />
+      <text class="l2 stage" x="232" y="30" text-anchor="middle" fill="#8a8474">Propose</text>
+
+      <circle class="n3" cx="348" cy="0" r="6" fill="#c7c0b0" />
+      <text class="l3 stage" x="348" y="30" text-anchor="middle" fill="#8a8474">Approve</text>
+
+      <circle class="n4" cx="464" cy="0" r="6" fill="#c7c0b0" />
+      <text class="l4 stage" x="464" y="30" text-anchor="middle" fill="#8a8474">Verify</text>
+    </g>
+
+    <!-- The gate is the point of the product, so it is marked. -->
+    <g class="sans">
+      <line x1="348" y1="-34" x2="348" y2="-12" stroke="#9a7b4f" stroke-width="1.2" />
+      <text class="bronze" x="348" y="-42" text-anchor="middle" font-size="11" font-weight="600">
+        human gate
+      </text>
+    </g>
+  </g>
+</svg>

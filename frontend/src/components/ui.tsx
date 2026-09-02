@@ -120,7 +120,9 @@ export function Card({
   bare?: boolean
 }) {
   return (
-    <section className={`min-w-0 ${bare ? '' : 'rounded-md border border-line'} ${className}`}>
+    <section
+      className={`min-w-0 ${bare ? '' : 'panel rounded-md border border-line'} ${className}`}
+    >
       {(title || actions) && (
         <header
           className={`flex flex-wrap items-baseline justify-between gap-3 ${
@@ -157,7 +159,7 @@ export function Button({
   icon?: ReactNode
 }) {
   const variants = {
-    primary: 'border-ink bg-ink text-white hover:bg-ink-2',
+    primary: 'border-accent bg-accent text-white hover:bg-accent-hover',
     secondary: 'border-line-strong bg-page text-ink hover:bg-sunken',
     danger: 'border-line-strong bg-page text-alarm hover:bg-alarm-bg',
     ghost: 'border-transparent bg-transparent text-ink-2 hover:text-ink',

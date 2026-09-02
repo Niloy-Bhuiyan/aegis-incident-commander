@@ -141,13 +141,16 @@ export function Layout() {
   const readOnly = status?.telemetry?.supports_remediation === false
 
   return (
-    <div className="flex h-full bg-page">
+    <div className="flex h-full bg-canvas">
       <nav
         aria-label="Primary"
-        className="hidden w-[228px] shrink-0 flex-col border-r border-line md:flex"
+        className="hidden w-[228px] shrink-0 flex-col border-r border-line bg-page md:flex"
       >
         <div className="px-5 pt-6 pb-5">
-          <div className="text-[15px] font-semibold tracking-tight text-ink">Aegis</div>
+          <div className="flex items-center gap-2">
+            <span aria-hidden className="h-[7px] w-[7px] rounded-full bg-accent" />
+            <span className="text-[15px] font-semibold tracking-tight text-ink">Aegis</span>
+          </div>
           {/* One line, so a first-time visitor knows what they are looking at. */}
           <p className="mt-1 text-[12.5px] leading-snug text-ink-3">
             Investigates incidents, proposes a fix, waits for your approval.
@@ -163,7 +166,7 @@ export function Layout() {
               title={`${label}  (g ${key})`}
               className={({ isActive }) =>
                 `rounded-sm px-2.5 py-2 transition-colors duration-150 ${
-                  isActive ? 'bg-sunken' : 'hover:bg-sunken'
+                  isActive ? 'nav-active bg-sunken' : 'hover:bg-sunken'
                 }`
               }
             >
@@ -200,7 +203,7 @@ export function Layout() {
       </nav>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line px-5 lg:px-8">
+        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-page px-5 lg:px-8">
           <span className="text-[13.5px] font-semibold text-ink md:hidden">Aegis</span>
 
           <div className="flex items-center gap-2" data-testid="platform-status">

@@ -1,4 +1,33 @@
-# Aegis — Autonomous AI Incident Commander
+<div align="center">
+
+<img src="docs/banner.svg" alt="Aegis - Autonomous AI Incident Commander" width="100%">
+
+<p>
+  <a href="https://github.com/Niloy-Bhuiyan/aegis-incident-commander/actions/workflows/ci.yml">
+    <img alt="CI" src="https://github.com/Niloy-Bhuiyan/aegis-incident-commander/actions/workflows/ci.yml/badge.svg">
+  </a>
+  <img alt="tests" src="https://img.shields.io/badge/tests-145%20passing-1f7a4d?style=flat-square&labelColor=1b1a16">
+  <img alt="backend" src="https://img.shields.io/badge/python-3.12%2B-1b1a16?style=flat-square&logo=python&logoColor=white&labelColor=1b1a16">
+  <img alt="frontend" src="https://img.shields.io/badge/react-19-1b1a16?style=flat-square&logo=react&logoColor=white&labelColor=1b1a16">
+  <img alt="model" src="https://img.shields.io/badge/claude--opus--5-9a7b4f?style=flat-square&labelColor=1b1a16">
+</p>
+
+<p><strong>Finds the cause. Cites the evidence. Waits for your approval.</strong></p>
+
+<p>
+  <a href="#the-problem">Problem</a> ·
+  <a href="#tech-stack">Tech stack</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#the-investigation-workflow">Workflow</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#running-it">Run it</a> ·
+  <a href="#evaluation">Evaluation</a> ·
+  <a href="#limitations">Limitations</a>
+</p>
+
+</div>
+
+---
 
 Aegis investigates production incidents the way a good on-call engineer does: it
 notices an SLO breach, works out which service the failure actually originates
@@ -22,6 +51,7 @@ approving a plan records a dry run rather than pretending to have acted.
 
 - [The problem](#the-problem)
 - [What is AI and what is not](#what-is-ai-and-what-is-not)
+- [Tech stack](#tech-stack)
 - [Architecture](#architecture)
 - [The investigation workflow](#the-investigation-workflow)
 - [Why no agent framework](#why-no-agent-framework)
@@ -82,6 +112,90 @@ code.
 
 ---
 
+## Tech stack
+
+<table>
+<tr>
+<td><strong>Backend</strong></td>
+<td>
+<img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-1b1a16?style=flat-square&logo=fastapi&logoColor=white&labelColor=1b1a16">
+<img alt="Python 3.12" src="https://img.shields.io/badge/Python%203.12-1b1a16?style=flat-square&logo=python&logoColor=white&labelColor=1b1a16">
+<img alt="SQLAlchemy 2.0" src="https://img.shields.io/badge/SQLAlchemy%202.0-1b1a16?style=flat-square&logo=sqlalchemy&logoColor=white&labelColor=1b1a16">
+<img alt="Alembic" src="https://img.shields.io/badge/Alembic-1b1a16?style=flat-square&labelColor=1b1a16">
+<img alt="Pydantic" src="https://img.shields.io/badge/Pydantic-1b1a16?style=flat-square&logo=pydantic&logoColor=white&labelColor=1b1a16">
+</td>
+</tr>
+<tr>
+<td><strong>Reasoning</strong></td>
+<td>
+<img alt="Claude Opus 5" src="https://img.shields.io/badge/Claude%20Opus%205-9a7b4f?style=flat-square&logo=anthropic&logoColor=white&labelColor=1b1a16">
+<img alt="structured outputs" src="https://img.shields.io/badge/structured%20outputs-9a7b4f?style=flat-square&labelColor=1b1a16">
+<img alt="adaptive thinking" src="https://img.shields.io/badge/adaptive%20thinking-9a7b4f?style=flat-square&labelColor=1b1a16">
+</td>
+</tr>
+<tr>
+<td><strong>Retrieval</strong></td>
+<td>
+<img alt="BM25" src="https://img.shields.io/badge/BM25-5b5648?style=flat-square&labelColor=1b1a16">
+<img alt="dense embeddings" src="https://img.shields.io/badge/dense%20embeddings-5b5648?style=flat-square&labelColor=1b1a16">
+<img alt="reciprocal rank fusion" src="https://img.shields.io/badge/reciprocal%20rank%20fusion-5b5648?style=flat-square&labelColor=1b1a16">
+<img alt="Voyage AI" src="https://img.shields.io/badge/Voyage%20AI-5b5648?style=flat-square&labelColor=1b1a16">
+</td>
+</tr>
+<tr>
+<td><strong>Data</strong></td>
+<td>
+<img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-1b1a16?style=flat-square&logo=postgresql&logoColor=white&labelColor=1b1a16">
+<img alt="SQLite" src="https://img.shields.io/badge/SQLite-1b1a16?style=flat-square&logo=sqlite&logoColor=white&labelColor=1b1a16">
+</td>
+</tr>
+<tr>
+<td><strong>Telemetry</strong></td>
+<td>
+<img alt="Prometheus" src="https://img.shields.io/badge/Prometheus-1b1a16?style=flat-square&logo=prometheus&logoColor=white&labelColor=1b1a16">
+<img alt="OpenTelemetry" src="https://img.shields.io/badge/OpenTelemetry-1b1a16?style=flat-square&logo=opentelemetry&logoColor=white&labelColor=1b1a16">
+<img alt="structlog" src="https://img.shields.io/badge/structlog-1b1a16?style=flat-square&labelColor=1b1a16">
+</td>
+</tr>
+<tr>
+<td><strong>Frontend</strong></td>
+<td>
+<img alt="React 19" src="https://img.shields.io/badge/React%2019-1b1a16?style=flat-square&logo=react&logoColor=white&labelColor=1b1a16">
+<img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-1b1a16?style=flat-square&logo=typescript&logoColor=white&labelColor=1b1a16">
+<img alt="Vite" src="https://img.shields.io/badge/Vite-1b1a16?style=flat-square&logo=vite&logoColor=white&labelColor=1b1a16">
+<img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind%20CSS-1b1a16?style=flat-square&logo=tailwindcss&logoColor=white&labelColor=1b1a16">
+<img alt="TanStack Query" src="https://img.shields.io/badge/TanStack%20Query-1b1a16?style=flat-square&logo=reactquery&logoColor=white&labelColor=1b1a16">
+<img alt="Recharts" src="https://img.shields.io/badge/Recharts-1b1a16?style=flat-square&labelColor=1b1a16">
+<img alt="React Flow" src="https://img.shields.io/badge/React%20Flow-1b1a16?style=flat-square&labelColor=1b1a16">
+</td>
+</tr>
+<tr>
+<td><strong>Quality</strong></td>
+<td>
+<img alt="pytest" src="https://img.shields.io/badge/pytest-1f7a4d?style=flat-square&logo=pytest&logoColor=white&labelColor=1b1a16">
+<img alt="Vitest" src="https://img.shields.io/badge/Vitest-1f7a4d?style=flat-square&logo=vitest&logoColor=white&labelColor=1b1a16">
+<img alt="Playwright" src="https://img.shields.io/badge/Playwright-1f7a4d?style=flat-square&logo=playwright&logoColor=white&labelColor=1b1a16">
+<img alt="Ruff" src="https://img.shields.io/badge/Ruff-1f7a4d?style=flat-square&logo=ruff&logoColor=white&labelColor=1b1a16">
+<img alt="GitHub Actions" src="https://img.shields.io/badge/GitHub%20Actions-1f7a4d?style=flat-square&logo=githubactions&logoColor=white&labelColor=1b1a16">
+</td>
+</tr>
+<tr>
+<td><strong>Delivery</strong></td>
+<td>
+<img alt="Docker" src="https://img.shields.io/badge/Docker-1b1a16?style=flat-square&logo=docker&logoColor=white&labelColor=1b1a16">
+<img alt="nginx" src="https://img.shields.io/badge/nginx-1b1a16?style=flat-square&logo=nginx&logoColor=white&labelColor=1b1a16">
+<img alt="Render" src="https://img.shields.io/badge/Render-1b1a16?style=flat-square&logo=render&logoColor=white&labelColor=1b1a16">
+</td>
+</tr>
+</table>
+
+**Why each choice:**
+
+| Layer | Choice | Rationale |
+|
+
+---
+
 ## Architecture
 
 ```mermaid
@@ -129,10 +243,7 @@ flowchart LR
     UI["React console"] --> API
 ```
 
-**Stack and why:**
-
-| Layer | Choice | Rationale |
-| --- | --- | --- |
+--- | --- | --- |
 | Backend | FastAPI, SQLAlchemy 2.0 async, Alembic | Typed request/response models, async fits the LLM-call-heavy workload, migrations from day one |
 | Database | PostgreSQL in deployment, SQLite locally | One schema, one migration history; `AEGIS_DATABASE_URL` selects the driver |
 | Reasoning | `anthropic` SDK, `claude-opus-5`, structured outputs, adaptive thinking | Every node returns a schema-validated object rather than prose to parse |
@@ -141,6 +252,43 @@ flowchart LR
 | Observability | OpenTelemetry, Prometheus metrics, structlog | Standard, exportable, no vendor lock |
 | Frontend | Vite, React, TypeScript, Tailwind, React Flow, Recharts, TanStack Query | Fast build, typed API surface, polling fits a 2-second telemetry cadence |
 | Workflow | Hand-written state machine | See below |
+
+---
+
+**One incident, end to end.** The gate is the load-bearing part: everything left
+of it is analysis, and nothing right of it happens without a named approver.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant T as Telemetry source
+    participant M as Monitor - deterministic
+    participant E as Evidence + retrieval
+    participant C as Claude
+    participant H as Operator
+    participant V as Verifier - deterministic
+
+    loop every 2s
+        M->>T: collect()
+        T-->>M: one sample per service
+    end
+    Note over M: SLO breach sustained 3 windows<br/>origin = breaching service with<br/>no breaching dependency
+    M->>E: open incident
+    E->>E: metrics, topology, change log (E1-E4)
+    E->>E: hybrid BM25 + dense retrieval (K1-Kn)
+    E->>C: evidence bundle + valid citation refs
+    C-->>E: ranked hypotheses with citations
+    C-->>E: critic verdicts + unsupported claims
+    C-->>E: one action from the allowlist
+    Note over E: citations that do not resolve<br/>are stripped and penalised
+    E->>H: proposal, parked
+    H->>V: approve (named)
+    V->>T: execute validated action
+    loop until 3 healthy windows
+        V->>T: collect()
+    end
+    V-->>H: recovery verified, incident resolved
+```
 
 ---
 
@@ -368,10 +516,13 @@ accuracy a real measurement rather than a formality.
 All captured from the running application by `npm run screenshots`.
 
 The console is deliberately plain, and written so that someone who has never
-seen it can work out what it is and what to do. White ground, hairline rules,
-one typeface. No gradients, shadows or filled badges — hierarchy comes from type
-and whitespace, and colour appears only where it carries meaning, as a small dot
-beside a word rather than a block of fill.
+seen it can work out what it is and what to do. It runs on a warm, layered light
+palette: the application sits on a tinted sand ground and panels are a lighter
+ivory, so surfaces separate by tone rather than by heavy borders — nothing is
+pure white. Hierarchy comes from type, whitespace and a single soft elevation
+step. Bronze marks the wordmark and the active page and never touches data;
+colour is otherwise reserved for status, shown as a small dot beside a word
+rather than a block of fill, so meaning never depends on distinguishing hues.
 
 Every page opens with a sentence explaining what it shows, each nav item says
 what it is for, and the Command Center leads with the single next action: either

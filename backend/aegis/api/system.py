@@ -84,7 +84,7 @@ async def system_status(
         healthy=all(s.status == "healthy" for s in services) and not active,
         services=services,
         active_incidents=len(active),
-        simulator=source.status(),
+        telemetry=source.status(),
         provider="anthropic" if settings.llm_enabled else "offline-heuristic",
         model=settings.llm_model if settings.llm_enabled else "rules/v1",
         knowledge_chunks=store.size,
@@ -116,6 +116,42 @@ async def topology(session: AsyncSession = Depends(get_session)) -> Topology:
             edges.append(TopologyEdge(source=spec.name, target=dep))
 
     return Topology(nodes=nodes, edges=edges)
+
+
+@router.get("/services/metrics", response_model=dict[str, list[MetricPoint]])
+async def all_service_metrics(
+    limit: int = Query(default=40, ge=1, le=120),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, list[MetricPoint]]:
+    """Recent series for every service in one round trip.
+
+    The console draws a sparkline per row; fanning that out to one request per
+    service would multiply the poll rate by the size of the fleet.
+    """
+    rows = (
+        await session.execute(
+            select(MetricSample)
+            .order_by(MetricSample.id.desc())
+            .limit(limit * max(len(SERVICES), 1))
+        )
+    ).scalars().all()
+
+    grouped: dict[str, list[MetricPoint]] = {service: [] for service in SERVICES}
+    for row in rows:
+        bucket = grouped.get(row.service)
+        if bucket is None or len(bucket) >= limit:
+            continue
+        bucket.append(
+            MetricPoint(
+                ts=row.ts,
+                latency_p50_ms=row.latency_p50_ms,
+                latency_p95_ms=row.latency_p95_ms,
+                error_rate=row.error_rate,
+                rps=row.rps,
+                saturation=row.saturation,
+            )
+        )
+    return {service: list(reversed(points)) for service, points in grouped.items()}
 
 
 @router.get("/services/{name}/metrics", response_model=list[MetricPoint])

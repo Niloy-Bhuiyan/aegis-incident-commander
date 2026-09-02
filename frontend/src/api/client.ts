@@ -53,6 +53,8 @@ export const api = {
   topology: () => request<Topology>('/api/system/topology'),
   serviceMetrics: (name: string, limit = 60) =>
     request<MetricPoint[]>(`/api/services/${name}/metrics?limit=${limit}`),
+  allServiceMetrics: (limit = 40) =>
+    request<Record<string, MetricPoint[]>>(`/api/services/metrics?limit=${limit}`),
   changes: (limit = 20) => request<ChangeEntry[]>(`/api/changes?limit=${limit}`),
   actions: () => request<ActionSpec[]>('/api/actions'),
 

@@ -1,49 +1,55 @@
 import { Link } from 'react-router-dom'
 
-import { Card, Empty, Pill, fmtTime } from '../components/ui'
+import { IconIncident } from '../components/icons'
+import { Badge, Empty, Panel, StatusDot, fmtAgo } from '../components/ui'
 import { useIncidents } from '../hooks/queries'
 
 export function Incidents() {
   const { data: incidents, isLoading } = useIncidents()
+  const open = (incidents ?? []).filter((i) => !['resolved', 'cancelled'].includes(i.status))
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Investigations</h1>
-        <p className="mt-1 text-sm text-mist-400">
-          Every incident Aegis has opened, with the state of its workflow.
+    <div className="space-y-3">
+      <div>
+        <h1 className="text-base font-semibold tracking-tight">Investigations</h1>
+        <p className="text-[11px] text-fg-3">
+          {isLoading
+            ? 'Loading…'
+            : `${incidents?.length ?? 0} total · ${open.length} open`}
         </p>
-      </header>
+      </div>
 
-      <Card>
+      <Panel bodyClass="p-2">
         {isLoading ? (
-          <Empty>Loading.</Empty>
+          <Empty>Loading…</Empty>
         ) : !incidents?.length ? (
-          <Empty>No incidents yet. Inject a failure from the Demo Lab.</Empty>
+          <Empty icon={<IconIncident size={18} />}>
+            No incidents yet. Inject a failure from the Demo Lab.
+          </Empty>
         ) : (
-          <ul className="space-y-2" data-testid="incident-list">
+          <ul className="space-y-1" data-testid="incident-list">
             {incidents.map((incident) => (
               <li key={incident.id}>
                 <Link
                   to={`/incidents/${incident.id}`}
-                  className="block rounded-lg border border-ink-800 bg-ink-850/50 px-4 py-3 transition hover:border-ink-600"
+                  className="block rounded-sm border border-line bg-raised px-2.5 py-2 transition-colors duration-150 hover:border-line-strong hover:bg-hover"
                 >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm text-mist-100">{incident.title}</div>
-                      <div className="mt-0.5 text-[11px] text-mist-400">
-                        #{incident.id} · {incident.service} · detected by {incident.detector} ·{' '}
-                        {fmtTime(incident.opened_at)}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Pill value={incident.severity} />
-                      <Pill value={incident.workflow_state} />
-                      <Pill value={incident.status} />
-                    </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusDot value={incident.severity} />
+                    <span className="tnum shrink-0 text-[10px] text-fg-3">#{incident.id}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-fg">
+                      {incident.title}
+                    </span>
+                    <Badge value={incident.severity} />
+                    <Badge value={incident.workflow_state} tone="neutral" />
+                    <Badge value={incident.status} />
+                  </div>
+                  <div className="tnum mt-0.5 pl-5 text-[10px] text-fg-3">
+                    {incident.service} · {incident.detector} · opened {fmtAgo(incident.opened_at)}
+                    {incident.resolved_at ? ` · resolved ${fmtAgo(incident.resolved_at)}` : ''}
                   </div>
                   {incident.root_cause && (
-                    <p className="mt-2 text-xs leading-relaxed text-mist-300">
+                    <p className="mt-1 pl-5 text-[11px] leading-snug text-fg-2">
                       {incident.root_cause}
                     </p>
                   )}
@@ -52,7 +58,7 @@ export function Incidents() {
             ))}
           </ul>
         )}
-      </Card>
+      </Panel>
     </div>
   )
 }

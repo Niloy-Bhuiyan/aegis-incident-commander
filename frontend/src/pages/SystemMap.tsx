@@ -3,21 +3,21 @@ import '@xyflow/react/dist/style.css'
 import { useMemo, useState } from 'react'
 
 import { MetricChart } from '../components/MetricChart'
-import { Card, Empty, Pill, fmtMs, fmtPct } from '../components/ui'
+import { Badge, Empty, Field, Panel, fmtMs, fmtNum, fmtPct } from '../components/ui'
 import { useServiceMetrics, useSystemStatus, useTopology } from '../hooks/queries'
 
 const TIER_ROW: Record<string, number> = { edge: 0, application: 1, datastore: 2 }
 
-const STATUS_BORDER: Record<string, string> = {
-  healthy: '#34d399',
-  degraded: '#f87171',
-  unknown: '#2c4066',
+const BORDER: Record<string, string> = {
+  healthy: 'var(--color-line-strong)',
+  degraded: 'var(--color-alarm)',
+  unknown: 'var(--color-line)',
 }
 
 export function SystemMap() {
   const { data: topology } = useTopology()
   const { data: status } = useSystemStatus()
-  const [selected, setSelected] = useState<string>('gateway')
+  const [selected, setSelected] = useState('gateway')
   const { data: metrics } = useServiceMetrics(selected)
 
   const { nodes, edges } = useMemo(() => {
@@ -33,27 +33,35 @@ export function SystemMap() {
       const row = TIER_ROW[node.tier] ?? 1
       const column = rows[row].indexOf(node.id)
       const width = rows[row].length
+      const degraded = node.status === 'degraded'
       return {
         id: node.id,
-        position: { x: 130 + column * 260 - (width - 1) * 60, y: 40 + row * 150 },
+        position: { x: 140 + column * 240 - ((width - 1) * 240) / 2, y: 30 + row * 130 },
         data: {
           label: (
-            <div className="px-1 py-0.5 text-left">
-              <div className="text-[13px] font-medium text-mist-100">{node.id}</div>
-              <div className="mt-0.5 font-mono text-[10px] text-mist-400">
-                {fmtMs(node.latency_p95_ms)} · {fmtPct(node.error_rate)}
+            <div className="w-full text-left leading-tight">
+              <div className="flex items-center gap-1.5">
+                <span
+                  aria-hidden
+                  style={{ color: degraded ? 'var(--color-alarm)' : 'var(--color-ok)' }}
+                  className="text-[8px]"
+                >
+                  {degraded ? '■' : '●'}
+                </span>
+                <span className="text-[12px] font-medium text-fg">{node.id}</span>
+              </div>
+              <div className="tnum mt-0.5 text-[9.5px] text-fg-3">
+                {fmtMs(node.latency_p95_ms)} · {fmtPct(node.error_rate, 1)}
               </div>
             </div>
           ),
         },
         style: {
-          background: node.status === 'degraded' ? 'rgba(248,113,113,0.12)' : '#101a2c',
-          border: `1.5px solid ${STATUS_BORDER[node.status] ?? '#2c4066'}`,
-          borderRadius: 10,
-          color: '#dce5f5',
-          width: 190,
-          padding: 8,
-          fontSize: 12,
+          background: degraded ? 'var(--color-alarm-dim)' : 'var(--color-raised)',
+          border: `1px solid ${BORDER[node.status] ?? 'var(--color-line)'}`,
+          borderRadius: 4,
+          width: 168,
+          padding: '6px 8px',
         },
       }
     })
@@ -66,7 +74,10 @@ export function SystemMap() {
         source: edge.source,
         target: edge.target,
         animated: degraded,
-        style: { stroke: degraded ? '#f87171' : '#2c4066', strokeWidth: degraded ? 2 : 1.5 },
+        style: {
+          stroke: degraded ? 'var(--color-alarm)' : 'var(--color-line-strong)',
+          strokeWidth: degraded ? 1.8 : 1.2,
+        },
       }
     })
 
@@ -76,17 +87,17 @@ export function SystemMap() {
   const service = status?.services.find((s) => s.name === selected)
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">System Map</h1>
-        <p className="mt-1 text-sm text-mist-400">
-          Service dependencies, live health, and the propagation paths Aegis uses to pick an origin
-          service. Edges point from a service to what it depends on.
+    <div className="space-y-3">
+      <div>
+        <h1 className="text-base font-semibold tracking-tight">System Map</h1>
+        <p className="text-[11px] text-fg-3">
+          Edges point from a service to what it depends on. The origin of an incident is the
+          breaching service with no breaching dependency.
         </p>
-      </header>
+      </div>
 
-      <Card className="overflow-hidden" title="Dependency graph" subtitle="Click a service for detail">
-        <div style={{ height: 520 }} data-testid="system-map">
+      <Panel title="Dependency graph" hint="click a service" bodyClass="p-0">
+        <div style={{ height: 460 }} data-testid="system-map">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -96,46 +107,39 @@ export function SystemMap() {
             nodesConnectable={false}
             edgesFocusable={false}
           >
-            <Background color="#1f2f4d" gap={22} />
+            <Background color="var(--color-line)" gap={20} size={1} />
             <Controls showInteractive={false} />
           </ReactFlow>
         </div>
-      </Card>
+      </Panel>
 
-      <div className="grid grid-cols-2 gap-5">
-        <Card
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <Panel
           title={selected}
-          subtitle={service?.description}
-          actions={service ? <Pill value={service.status} /> : undefined}
+          hint={service?.tier}
+          actions={service ? <Badge value={service.status} /> : null}
         >
           {service ? (
-            <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded border border-ink-800 bg-ink-900/60 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-wider text-mist-400">p95 / SLO</div>
-                  <div className="mt-0.5 font-mono text-mist-100">
-                    {fmtMs(service.latency_p95_ms)} / {fmtMs(service.slo_latency_p95_ms)}
-                  </div>
-                </div>
-                <div className="rounded border border-ink-800 bg-ink-900/60 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-wider text-mist-400">
-                    errors / SLO
-                  </div>
-                  <div className="mt-0.5 font-mono text-mist-100">
-                    {fmtPct(service.error_rate)} / {fmtPct(service.slo_error_rate)}
-                  </div>
-                </div>
+            <div className="space-y-2">
+              <p className="text-[11px] leading-snug text-fg-2">{service.description}</p>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                <Field label="p95 / SLO">
+                  {fmtMs(service.latency_p95_ms)} / {fmtMs(service.slo_latency_p95_ms)}
+                </Field>
+                <Field label="errors / SLO">
+                  {fmtPct(service.error_rate)} / {fmtPct(service.slo_error_rate, 1)}
+                </Field>
+                <Field label="saturation">{fmtNum(service.saturation)}</Field>
+                <Field label="rps">{service.rps?.toFixed(0) ?? '—'}</Field>
               </div>
-              <p className="text-mist-300">
-                Depends on:{' '}
-                <span className="font-mono text-mist-100">
-                  {service.depends_on.join(', ') || 'nothing'}
-                </span>
-              </p>
+              <Field label="depends on">
+                {service.depends_on.join(', ') || 'nothing'}
+              </Field>
               {service.breaches.length > 0 && (
-                <ul className="space-y-1">
+                <ul className="space-y-0.5">
                   {service.breaches.map((breach) => (
-                    <li key={breach} className="text-alarm-500">
+                    <li key={breach} className="flex gap-1.5 text-[11px] text-alarm">
+                      <span aria-hidden>■</span>
                       {breach}
                     </li>
                   ))}
@@ -145,19 +149,20 @@ export function SystemMap() {
           ) : (
             <Empty>Select a service.</Empty>
           )}
-        </Card>
+        </Panel>
 
-        <Card title="p95 latency" subtitle={selected}>
+        <Panel title="p95 latency" hint={selected}>
           {metrics?.length ? (
             <MetricChart
               data={metrics}
               metric="latency_p95_ms"
               slo={service?.slo_latency_p95_ms}
+              height={150}
             />
           ) : (
             <Empty>No telemetry.</Empty>
           )}
-        </Card>
+        </Panel>
       </div>
     </div>
   )

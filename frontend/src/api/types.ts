@@ -18,17 +18,27 @@ export type SystemStatus = {
   healthy: boolean
   services: ServiceHealth[]
   active_incidents: number
-  simulator: {
-    healthy: boolean
-    active_scenarios: string[]
-    applied_actions: {
+  // Shape depends on the configured telemetry source, so nothing is guaranteed.
+  telemetry: {
+    source?: string
+    healthy?: boolean
+    supports_remediation?: boolean
+    // simulator only
+    active_scenarios?: string[]
+    applied_actions?: {
       action_id: string
       service: string
       params: Record<string, unknown>
       at: string
       resolved_fault: boolean
     }[]
-    tick: number
+    tick?: number
+    // prometheus only
+    url?: string
+    services?: string[]
+    last_error?: string | null
+    last_collect?: string | null
+    missing_signals?: Record<string, string[]>
   }
   provider: string
   model: string

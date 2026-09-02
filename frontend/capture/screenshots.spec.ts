@@ -14,6 +14,7 @@ test('capture product screenshots', async ({ page }) => {
   // Healthy baseline.
   await page.goto('/lab')
   await page.getByRole('button', { name: /restore system/i }).click()
+  await expect(page.getByTestId('active-faults')).toHaveText('none')
   await page.goto('/')
   await expect(page.getByTestId('platform-status')).toHaveText(/healthy/i, { timeout: 45_000 })
   await page.waitForTimeout(4000) // let a few samples land so the chart has a shape
@@ -38,7 +39,15 @@ test('capture product screenshots', async ({ page }) => {
 
   await page.goto('/')
   await expect(page.getByTestId('platform-status')).toHaveText(/degraded/i, { timeout: 45_000 })
-  await page.waitForTimeout(3000)
+  // Wait for the investigation to reach the approval gate so the dashboard
+  // shows the live incident rather than a leftover from a previous run.
+  await expect(
+    page.getByTestId('incident-list').getByRole('link').first(),
+  ).toContainText('payments-db', { timeout: 45_000 })
+  await expect(page.getByTestId('incident-list')).toContainText(/awaiting approval/i, {
+    timeout: 45_000,
+  })
+  await page.waitForTimeout(1500)
   await page.screenshot({ path: `${SHOTS}/02-command-center-incident.png`, fullPage: true })
 
   // System map showing propagation.

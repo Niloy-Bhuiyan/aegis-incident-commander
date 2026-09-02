@@ -157,3 +157,17 @@ async def test_restore_cancels_active_incidents(client):
 
     after = (await client.get(f"/api/incidents/{incident['id']}")).json()
     assert after["status"] == "cancelled"
+
+
+async def test_timestamps_carry_an_explicit_utc_offset(client):
+    """Naive timestamps would be read as local time by every browser."""
+    incident = await drive_to_incident(client, "checkout_latency_regression")
+
+    assert incident["opened_at"].endswith("+00:00")
+    assert all(event["ts"].endswith("+00:00") for event in incident["events"])
+
+    changes = (await client.get("/api/changes")).json()
+    assert all(change["ts"].endswith("+00:00") for change in changes)
+
+    metrics = (await client.get("/api/services/gateway/metrics?limit=3")).json()
+    assert all(point["ts"].endswith("+00:00") for point in metrics)

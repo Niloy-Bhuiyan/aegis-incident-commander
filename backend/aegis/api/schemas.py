@@ -2,9 +2,25 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Annotated
 
-from pydantic import BaseModel
+from pydantic import BaseModel, PlainSerializer
+
+
+def _as_utc(value: datetime) -> str:
+    """Always emit an explicit UTC offset.
+
+    SQLite does not persist tzinfo, so timestamps come back naive. Serialising
+    them without an offset makes every browser read them as local time, which
+    showed a freshly opened incident as hours old.
+    """
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat()
+
+
+UtcDateTime = Annotated[datetime, PlainSerializer(_as_utc, return_type=str)]
 
 
 class ServiceHealth(BaseModel):
@@ -27,14 +43,14 @@ class SystemStatus(BaseModel):
     healthy: bool
     services: list[ServiceHealth]
     active_incidents: int
-    simulator: dict
+    telemetry: dict
     provider: str
     model: str
     knowledge_chunks: int
 
 
 class MetricPoint(BaseModel):
-    ts: datetime
+    ts: UtcDateTime
     latency_p50_ms: float
     latency_p95_ms: float
     error_rate: float
@@ -47,7 +63,7 @@ class ChangeEntry(BaseModel):
     service: str
     kind: str
     version: str
-    ts: datetime
+    ts: UtcDateTime
     change_summary: str
     risk: str
 
@@ -74,7 +90,7 @@ class Topology(BaseModel):
 
 class EventOut(BaseModel):
     id: int
-    ts: datetime
+    ts: UtcDateTime
     kind: str
     actor: str
     message: str
@@ -118,8 +134,8 @@ class PlanOut(BaseModel):
     citations: list[str]
     status: str
     approved_by: str
-    approved_at: datetime | None
-    executed_at: datetime | None
+    approved_at: UtcDateTime | None
+    executed_at: UtcDateTime | None
     result: dict
 
 
@@ -133,8 +149,8 @@ class IncidentSummaryOut(BaseModel):
     detector: str
     summary: str
     root_cause: str
-    opened_at: datetime
-    resolved_at: datetime | None
+    opened_at: UtcDateTime
+    resolved_at: UtcDateTime | None
     scenario: str
 
 
@@ -156,7 +172,7 @@ class DocumentSummary(BaseModel):
     service: str
     tags: list[str]
     chunks: int
-    updated_at: datetime
+    updated_at: UtcDateTime
 
 
 class DocumentDetail(DocumentSummary):

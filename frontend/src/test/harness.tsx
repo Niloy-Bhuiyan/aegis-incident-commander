@@ -37,8 +37,10 @@ export const statusFixture: SystemStatus = {
   provider: 'offline-heuristic',
   model: 'rules/v1',
   knowledge_chunks: 96,
-  simulator: {
+  telemetry: {
+    source: 'simulated',
     healthy: false,
+    supports_remediation: true,
     active_scenarios: ['checkout_latency_regression'],
     applied_actions: [],
     tick: 12,

@@ -459,9 +459,9 @@ class HeuristicProvider:
     ) -> IncidentSummary:
         return IncidentSummary(
             summary=(
-                f"{ctx.incident_title}. {ctx.breach_summary} "
-                f"Correlation places the origin at {ctx.service}; its dependencies are within SLO. "
-                f"Proposed remediation is {plan.action_id} on {plan.service}."
+                f"{ctx.incident_title}. {ctx.breach_summary.rstrip('.')}. "
+                f"Correlation places the origin at {ctx.service}, whose own dependencies are "
+                f"within SLO. Proposed remediation is {plan.action_id} on {plan.service}."
             ),
             root_cause=top.statement,
         )

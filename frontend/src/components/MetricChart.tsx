@@ -1,7 +1,7 @@
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -12,70 +12,106 @@ import {
 import type { MetricPoint } from '../api/types'
 import { fmtTime } from './ui'
 
-type Props = {
-  data: MetricPoint[]
-  metric: 'latency_p95_ms' | 'error_rate' | 'saturation'
-  slo?: number
-  height?: number
-}
+type Metric = 'latency_p95_ms' | 'latency_p50_ms' | 'error_rate' | 'saturation' | 'rps'
 
-const LABELS = {
-  latency_p95_ms: 'p95 latency (ms)',
+const LABELS: Record<Metric, string> = {
+  latency_p95_ms: 'p95 latency',
+  latency_p50_ms: 'p50 latency',
   error_rate: 'error rate',
   saturation: 'saturation',
-} as const
+  rps: 'requests/s',
+}
 
-export function MetricChart({ data, metric, slo, height = 190 }: Props) {
-  const points = data.map((p) => ({
-    ts: fmtTime(p.ts),
-    value: metric === 'error_rate' ? p.error_rate * 100 : p[metric],
-  }))
-  const threshold = slo !== undefined && metric === 'error_rate' ? slo * 100 : slo
+const UNITS: Record<Metric, string> = {
+  latency_p95_ms: 'ms',
+  latency_p50_ms: 'ms',
+  error_rate: '%',
+  saturation: '',
+  rps: '/s',
+}
+
+export function MetricChart({
+  data,
+  metric,
+  slo,
+  height = 150,
+}: {
+  data: MetricPoint[]
+  metric: Metric
+  slo?: number
+  height?: number
+}) {
+  const scale = metric === 'error_rate' ? 100 : 1
+  const points = data.map((p) => ({ ts: fmtTime(p.ts), value: p[metric] * scale }))
+  const threshold = slo === undefined ? undefined : slo * scale
+  const last = points.at(-1)?.value ?? 0
+  const breached = threshold !== undefined && last > threshold
+  const stroke = breached ? 'var(--color-alarm)' : 'var(--color-info)'
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={points} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
-        <CartesianGrid stroke="#1f2f4d" strokeDasharray="3 3" vertical={false} />
+      <AreaChart data={points} margin={{ top: 6, right: 6, bottom: 0, left: -22 }}>
+        <defs>
+          <linearGradient id={`fill-${metric}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={stroke} stopOpacity={0.28} />
+            <stop offset="100%" stopColor={stroke} stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid stroke="var(--color-line)" strokeDasharray="2 3" vertical={false} />
         <XAxis
           dataKey="ts"
-          tick={{ fill: '#7f92b4', fontSize: 10 }}
-          stroke="#1f2f4d"
-          minTickGap={40}
+          tick={{ fill: 'var(--color-fg-3)', fontSize: 9, fontFamily: 'JetBrains Mono' }}
+          stroke="var(--color-line)"
+          tickLine={false}
+          minTickGap={44}
         />
-        <YAxis tick={{ fill: '#7f92b4', fontSize: 10 }} stroke="#1f2f4d" width={52} />
+        <YAxis
+          tick={{ fill: 'var(--color-fg-3)', fontSize: 9, fontFamily: 'JetBrains Mono' }}
+          stroke="var(--color-line)"
+          tickLine={false}
+          axisLine={false}
+          width={44}
+        />
         <Tooltip
+          cursor={{ stroke: 'var(--color-line-strong)', strokeWidth: 1 }}
           contentStyle={{
-            background: '#0b111f',
-            border: '1px solid #1f2f4d',
-            borderRadius: 8,
-            fontSize: 12,
+            background: 'var(--color-raised)',
+            border: '1px solid var(--color-line-strong)',
+            borderRadius: 4,
+            fontSize: 11,
+            padding: '4px 8px',
           }}
-          labelStyle={{ color: '#a6b6d3' }}
-          formatter={(value) => {
-            const numeric = Number(value)
-            return [
-              metric === 'error_rate' ? `${numeric.toFixed(2)}%` : numeric.toFixed(2),
-              LABELS[metric],
-            ]
-          }}
+          labelStyle={{ color: 'var(--color-fg-3)', fontSize: 10 }}
+          itemStyle={{ color: 'var(--color-fg)' }}
+          formatter={(value) => [
+            `${Number(value).toFixed(metric === 'saturation' ? 2 : 1)}${UNITS[metric]}`,
+            LABELS[metric],
+          ]}
         />
         {threshold !== undefined && (
           <ReferenceLine
             y={threshold}
-            stroke="#f87171"
-            strokeDasharray="4 4"
-            label={{ value: 'SLO', fill: '#f87171', fontSize: 10, position: 'insideTopRight' }}
+            stroke="var(--color-alarm)"
+            strokeDasharray="3 3"
+            strokeOpacity={0.7}
+            label={{
+              value: `SLO ${threshold}${UNITS[metric]}`,
+              fill: 'var(--color-alarm)',
+              fontSize: 9,
+              position: 'insideTopRight',
+            }}
           />
         )}
-        <Line
+        <Area
           type="monotone"
           dataKey="value"
-          stroke="#38bdf8"
-          strokeWidth={2}
+          stroke={stroke}
+          strokeWidth={1.6}
+          fill={`url(#fill-${metric})`}
           dot={false}
           isAnimationActive={false}
         />
-      </LineChart>
+      </AreaChart>
     </ResponsiveContainer>
   )
 }

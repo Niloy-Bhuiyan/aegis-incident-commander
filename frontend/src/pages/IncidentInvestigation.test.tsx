@@ -63,7 +63,7 @@ describe('IncidentInvestigation', () => {
     const chip = screen.getAllByRole('button', { name: 'K1' })[0]
     await user.click(chip)
 
-    expect(screen.getByTestId('evidence-K1').className).toContain('border-signal-500')
+    expect(screen.getByTestId('evidence-K1').className).toContain('border-info')
   })
 
   it('shows the proposed action and requires approval before executing', async () => {

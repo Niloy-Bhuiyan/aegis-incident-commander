@@ -8,8 +8,11 @@ has those hypotheses attacked by a critic, recommends one action from an
 approved catalogue, waits for a human to approve it, executes it in a sandbox,
 and then measures whether the platform actually recovered.
 
-It runs against a **simulated** six-service e-commerce platform with injectable
-failures. Nothing here touches real infrastructure.
+Telemetry is a pluggable boundary. Out of the box Aegis runs against a
+**simulated** six-service e-commerce platform with injectable failures; pointed
+at a **live Prometheus** it reads real metrics through the same pipeline. What it
+does *not* have is credentials to change anything real - against Prometheus,
+approving a plan records a dry run rather than pretending to have acted.
 
 ![Command Center](docs/screenshots/01-command-center-healthy.png)
 
@@ -22,6 +25,7 @@ failures. Nothing here touches real infrastructure.
 - [Architecture](#architecture)
 - [The investigation workflow](#the-investigation-workflow)
 - [Why no agent framework](#why-no-agent-framework)
+- [Telemetry sources](#telemetry-sources)
 - [Retrieval](#retrieval)
 - [Safety model](#safety-model)
 - [The simulated platform](#the-simulated-platform)
@@ -82,8 +86,9 @@ code.
 
 ```mermaid
 flowchart LR
-    subgraph sim["Simulated platform"]
-        SIM["Metric engine<br/>dependency propagation<br/>failure injection"]
+    subgraph src["Telemetry sources"]
+        SIM["Simulator<br/>propagation + fault injection"]
+        PROM["Prometheus<br/>live instant queries"]
     end
 
     subgraph det["Deterministic core"]
@@ -106,12 +111,15 @@ flowchart LR
         KB["Knowledge base<br/>BM25 + embeddings"]
     end
 
-    SIM --> MON --> DET --> EV
+    SIM --> MON
+    PROM --> MON
+    MON --> DET --> EV
     EV --> KB
     EV --> HYP --> CRIT --> RANK --> PLAN
     KB --> HYP
     PLAN --> HUMAN{{"Human approval"}}
     HUMAN -->|approved| EXE --> SIM
+    EXE -.->|dry run, read-only| PROM
     EXE --> VER --> PG
     MON --> PG
     EV --> PG
@@ -129,6 +137,7 @@ flowchart LR
 | Database | PostgreSQL in deployment, SQLite locally | One schema, one migration history; `AEGIS_DATABASE_URL` selects the driver |
 | Reasoning | `anthropic` SDK, `claude-opus-5`, structured outputs, adaptive thinking | Every node returns a schema-validated object rather than prose to parse |
 | Retrieval | BM25 + dense embeddings, reciprocal rank fusion | Lexical precision for identifiers, dense recall for topic; no vector-DB service to operate at this corpus size |
+| Telemetry | `TelemetrySource` interface: simulator or live Prometheus | The rest of the pipeline never learns which one it is reading |
 | Observability | OpenTelemetry, Prometheus metrics, structlog | Standard, exportable, no vendor lock |
 | Frontend | Vite, React, TypeScript, Tailwind, React Flow, Recharts, TanStack Query | Fast build, typed API surface, polling fits a 2-second telemetry cadence |
 | Workflow | Hand-written state machine | See below |
@@ -199,6 +208,78 @@ selection, model-decided iteration depth, or parallel sub-investigations. At
 that point LangGraph's checkpointing and interrupt model would be worth its
 dependency. The reasoning nodes are isolated behind a provider interface
 (`aegis/agent/provider.py`) precisely so that swap stays cheap.
+
+---
+
+## Telemetry sources
+
+`TelemetrySource` (`backend/aegis/sources/`) is the seam between "where the
+numbers come from" and everything that reasons about them. Detection, evidence
+collection, retrieval, hypotheses and verification are identical either way.
+
+| | `simulated` | `prometheus` |
+| --- | --- | --- |
+| Metrics | In-process engine with dependency propagation | Live instant queries over the HTTP API |
+| Change log | Injected deploy/config/capacity events | PromQL returning one labelled series per change |
+| Failure injection | Yes, from the Demo Lab | No - faults come from reality |
+| Remediation | Executed against the simulator | **Dry run.** Recorded, not executed |
+
+### What Prometheus cannot tell you
+
+A metrics endpoint exposes numbers, not meaning. Three things are declared in
+`telemetry.prometheus.example.yml` because they cannot be inferred:
+
+- **`depends_on`** — the dependency graph. Without it there is no way to
+  separate a cause from its downstream consequences, which is the single most
+  valuable thing Aegis does.
+- **`slo`** — what healthy means. This is what opens an incident.
+- **`baseline`** — the steady state. "7x baseline" is a signal; "285ms" is a
+  number.
+
+Each service also supplies the PromQL for its five signals. The shipped example
+uses standard client conventions (`http_requests_total`,
+`http_request_duration_seconds_bucket`, `pg_stat_activity_count` over
+`pg_settings_max_connections` for pool saturation).
+
+### Honest behaviour on partial data
+
+If any signal for a service fails to scrape, that service's sample is **dropped
+rather than back-filled**. A half-scraped service must never look healthy. The
+misses surface in `/api/system/status` and in the console's status strip.
+
+### Remediation is not faked
+
+Aegis holds no credentials for the systems behind a Prometheus endpoint, so
+`PrometheusSource.execute` records the approved action and returns
+`executed: false`. The incident parks in `awaiting_execution` instead of waiting
+for a recovery that nothing was done to cause. Wiring a real executor means
+implementing that one method against whatever performs the change.
+
+### Trying it without installing Prometheus
+
+`backend/tools/fake_prometheus.py` is a Prometheus-shaped **test double** backed
+by the simulator. It speaks enough of `/api/v1/query` to exercise the real
+adapter over real HTTP:
+
+```bash
+cd backend
+python -m tools.fake_prometheus --port 9090
+```
+
+```bash
+cd backend
+AEGIS_TELEMETRY_SOURCE=prometheus AEGIS_TELEMETRY_CONFIG=telemetry.local-demo.yml uvicorn aegis.main:app --port 8000
+```
+
+Then inject a fault into the *metrics backend* rather than into Aegis:
+
+```bash
+curl -X POST localhost:9090/control/inject/payments_db_timeout
+```
+
+Aegis detects it through the normal path, attributes it to `payments-db`,
+retrieves the matching runbook and postmortem, proposes
+`increase_connection_pool`, and on approval records a dry run.
 
 ---
 
@@ -286,6 +367,15 @@ accuracy a real measurement rather than a formality.
 
 All captured from the running application by `npm run screenshots`.
 
+The console is built as an operations tool rather than a dashboard: a dense
+8-32px scale, tabular monospace numerals so columns do not shift as digits
+change, hairline structure, and saturated colour reserved for signal — when
+something turns red it means something. Status is never conveyed by colour
+alone; every state carries a glyph and a word. The status strip reports whether
+telemetry is actually **live or stale** rather than assuming the poll succeeded.
+`g c` / `g i` / `g m` / `g k` / `g l` jump between pages and `?` lists the
+shortcuts.
+
 **Incident under investigation** — evidence, ranked hypotheses with resolvable
 citations, the critic's verdict, and the proposed action parked on the approval
 gate:
@@ -360,6 +450,13 @@ AEGIS_LLM_MODEL=claude-opus-5
 AEGIS_LLM_EFFORT=medium
 ```
 
+**Against a real Prometheus.** See [Telemetry sources](#telemetry-sources):
+
+```bash
+AEGIS_TELEMETRY_SOURCE=prometheus
+AEGIS_TELEMETRY_CONFIG=telemetry.prometheus.example.yml
+```
+
 **Database migrations.** SQLite is created automatically; PostgreSQL uses
 Alembic:
 
@@ -380,9 +477,9 @@ docker compose up --build
 
 | Suite | Command | Count |
 | --- | --- | --- |
-| Backend | `cd backend && pytest -q` | 72 |
+| Backend | `cd backend && pytest -q` | 98 |
 | Backend lint | `ruff check aegis tests` | — |
-| Frontend unit | `cd frontend && npm run test` | 20 |
+| Frontend unit | `cd frontend && npm run test` | 36 |
 | Frontend build | `npm run build` | — |
 | End-to-end (browser) | `npm run test:e2e` | 5 |
 
@@ -399,6 +496,13 @@ reject unknown actions, shell-shaped payloads, path traversal in a service name,
 extra parameters, out-of-range integers and booleans-as-integers; the Anthropic
 request must carry a strict, self-contained JSON schema and adaptive thinking,
 and must surface refusals and schema violations as errors.
+
+The Prometheus adapter is covered end to end against the shipped test double:
+all three failure fingerprints are detected through the real HTTP path, a
+partially-scraped service is dropped rather than back-filled, changes are read
+from labelled series, and remediation reports itself as a dry run. Config
+validation rejects a missing SLO, a missing baseline, an absent signal query and
+a dangling dependency.
 
 ---
 
@@ -469,10 +573,12 @@ point, not a proven deploy.
 
 ## Limitations
 
-1. **The platform is simulated.** Aegis reasons over a metric engine, not real
-   infrastructure. Real telemetry is noisier, incidents overlap, and services
-   fail in ways this simulator does not model. Nothing here demonstrates that
-   the approach survives contact with production.
+1. **It has never been pointed at a production Prometheus.** The adapter is
+   real and exercised over real HTTP, but only against a test double backed by
+   the simulator. Production telemetry is noisier, has gaps and far higher
+   cardinality, and incidents overlap — the detector handles one origin at a
+   time. Nothing here demonstrates the approach survives contact with a real
+   fleet.
 2. **The Claude reasoning path is implemented but was never executed against the
    live API in this build.** No API key was available in the build environment.
    The request shape, structured-output schema, refusal handling, usage
@@ -480,7 +586,10 @@ point, not a proven deploy.
    and the workflow, evaluation and demo all run on the deterministic offline
    provider. Every number in this README comes from that offline provider — none
    of them is evidence about model quality.
-3. **Not deployed, and the containers are unbuilt.** See above.
+3. **Remediation against a real backend is a dry run, and there is no RBAC.**
+   Approving a plan under the Prometheus source records the decision without
+   acting. Auth is a single shared API token; there is no per-user identity,
+   no paging integration and no multi-tenancy.
 
 ---
 
@@ -492,8 +601,9 @@ point, not a proven deploy.
   rate, which is the weakest measured component at 0.67.
 - Feed resolved incidents back into the knowledge base so the corpus grows from
   the system's own postmortems.
-- Real telemetry adapters (Prometheus, OTLP) behind the same evidence interface,
-  so the simulator becomes one source among several.
+- A real remediation executor behind the existing allowlist — the boundary is
+  already there; it needs one method implemented against a deploy or config API.
+- Point it at a real Prometheus with real services and re-run the evaluation.
 - Multiple concurrent incidents with correlation between them, which the
   detector currently does not attempt.
 - Build and deploy the containers, then replace the deployment section with a
@@ -514,8 +624,10 @@ backend/
     rag/          chunking, embeddings, hybrid store, ingest
     remediation/  action allowlist, sandbox executor, recovery verifier
     sim/          topology, failure scenarios, metric engine
+    sources/      telemetry sources: simulator and Prometheus adapter
   alembic/        migrations
-  tests/          72 tests
+  tools/          fake_prometheus.py - Prometheus-shaped test double
+  tests/          98 tests
 frontend/
   src/            React console: command center, investigation, map, KB, lab
   e2e/            Playwright browser suite

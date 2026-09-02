@@ -3,10 +3,20 @@ import { Link, useParams } from 'react-router-dom'
 
 import type { Evidence, Hypothesis, Plan } from '../api/types'
 import { MetricChart } from '../components/MetricChart'
-import { Button, Card, Empty, Pill, fmtTime } from '../components/ui'
+import { IconArrowLeft, IconCheck, IconDoc, IconGauge, IconShield, IconX } from '../components/icons'
+import {
+  Badge,
+  Button,
+  Empty,
+  Field,
+  Panel,
+  fmtAgo,
+  fmtTime,
+  toneFor,
+} from '../components/ui'
 import { useApprove, useIncident, useReject, useServiceMetrics } from '../hooks/queries'
 
-const WORKFLOW_STEPS = [
+const STEPS = [
   'detected',
   'collecting_evidence',
   'retrieving_knowledge',
@@ -20,38 +30,73 @@ const WORKFLOW_STEPS = [
   'resolved',
 ]
 
+const SHORT: Record<string, string> = {
+  detected: 'detect',
+  collecting_evidence: 'evidence',
+  retrieving_knowledge: 'retrieve',
+  generating_hypotheses: 'hypothesise',
+  critiquing: 'critique',
+  ranking: 'rank',
+  planning_remediation: 'plan',
+  awaiting_approval: 'approval',
+  executing: 'execute',
+  verifying: 'verify',
+  resolved: 'resolved',
+}
+
+/** The pipeline as a segmented bar: position in the run, not a pile of chips. */
 function WorkflowTrack({ state }: { state: string }) {
-  const index = WORKFLOW_STEPS.indexOf(state)
+  const index = STEPS.indexOf(state)
+  const failed = state === 'failed' || state === 'awaiting_execution'
+
   return (
-    <ol className="flex flex-wrap gap-1.5" data-testid="workflow-track">
-      {WORKFLOW_STEPS.map((step, i) => {
+    <ol
+      className="flex w-full items-stretch gap-px overflow-hidden rounded-sm border border-line"
+      data-testid="workflow-track"
+      aria-label={`Workflow position: ${state.replace(/_/g, ' ')}`}
+    >
+      {STEPS.map((step, i) => {
         const done = index >= 0 && i < index
         const current = step === state
         return (
           <li
             key={step}
-            className={`rounded-md border px-2 py-1 text-[10px] tracking-wide ${
+            title={step.replace(/_/g, ' ')}
+            className={`flex min-w-0 flex-1 items-center justify-center px-1 py-1 text-[9.5px] whitespace-nowrap transition-colors duration-150 ${
               current
-                ? 'border-signal-500/50 bg-signal-500/15 text-signal-400'
+                ? 'bg-info-dim font-semibold text-info'
                 : done
-                  ? 'border-ok-500/30 bg-ok-500/10 text-ok-500'
-                  : 'border-ink-700 bg-ink-850/60 text-mist-400'
+                  ? 'bg-ok-dim/60 text-ok'
+                  : 'bg-raised text-fg-3'
             }`}
           >
-            {step.replace(/_/g, ' ')}
+            <span className="truncate">
+              {current ? step.replace(/_/g, ' ') : SHORT[step]}
+            </span>
           </li>
         )
       })}
+      {failed && (
+        <li className="flex items-center bg-warn-dim px-2 py-1 text-[9.5px] text-warn">
+          {state.replace(/_/g, ' ')}
+        </li>
+      )}
     </ol>
   )
 }
 
-function CitationChip({ refId, onSelect }: { refId: string; onSelect: (ref: string) => void }) {
+function Citation({ refId, onSelect }: { refId: string; onSelect: (ref: string) => void }) {
+  const isKnowledge = refId.startsWith('K')
   return (
     <button
       type="button"
       onClick={() => onSelect(refId)}
-      className="rounded border border-signal-500/30 bg-signal-500/10 px-1.5 py-0.5 font-mono text-[10px] text-signal-400 transition hover:bg-signal-500/25"
+      title={`Show ${isKnowledge ? 'document' : 'evidence'} ${refId}`}
+      className={`tnum rounded-xs border px-1 py-px text-[10px] transition-colors duration-150 ${
+        isKnowledge
+          ? 'border-warn/30 bg-warn-dim text-warn hover:bg-warn/20'
+          : 'border-info/30 bg-info-dim text-info hover:bg-info/20'
+      }`}
     >
       {refId}
     </button>
@@ -66,55 +111,57 @@ function HypothesisCard({
   onSelect: (ref: string) => void
 }) {
   const leading = hypothesis.rank === 1
+  const tone = toneFor(hypothesis.verdict)
+
   return (
     <article
       data-testid={`hypothesis-${hypothesis.rank}`}
-      className={`rounded-lg border px-4 py-3 ${
-        leading ? 'border-signal-500/40 bg-signal-500/5' : 'border-ink-800 bg-ink-850/50'
+      className={`rounded-sm border px-2.5 py-2 ${
+        leading ? 'border-info/35 bg-info-dim/40' : 'border-line bg-raised'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-xs text-mist-400">#{hypothesis.rank}</span>
-          <Pill value={hypothesis.cause_type} />
-          {leading && <Pill value="supported" label="leading" />}
-        </div>
-        <div className="flex items-center gap-2">
-          <Pill value={hypothesis.verdict} />
-          <span className="font-mono text-[11px] text-mist-400">
-            score {hypothesis.final_score.toFixed(2)}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="tnum text-[10px] text-fg-3">#{hypothesis.rank}</span>
+        <Badge value={hypothesis.cause_type} tone={leading ? 'info' : 'neutral'} />
+        {leading && <Badge value="leading" tone="info" />}
+        <span className="ml-auto flex items-center gap-1.5">
+          <Badge value={hypothesis.verdict} tone={tone} />
+          <span className="tnum text-[10px] text-fg-3">
+            {hypothesis.final_score.toFixed(2)}
           </span>
-        </div>
+        </span>
       </div>
 
-      <p className="mt-2 text-sm leading-relaxed text-mist-100">{hypothesis.statement}</p>
-      <p className="mt-1.5 text-xs leading-relaxed text-mist-300">{hypothesis.mechanism}</p>
+      <p className="mt-1.5 text-xs leading-snug text-fg">{hypothesis.statement}</p>
+      <p className="mt-1 text-[11px] leading-snug text-fg-2">{hypothesis.mechanism}</p>
 
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        <span className="text-[11px] text-mist-400">Cites</span>
+      <div className="mt-2 flex flex-wrap items-center gap-1">
         {hypothesis.citations.length ? (
-          hypothesis.citations.map((c) => <CitationChip key={c} refId={c} onSelect={onSelect} />)
+          hypothesis.citations.map((c) => (
+            <Citation key={c} refId={c} onSelect={onSelect} />
+          ))
         ) : (
-          <span className="text-[11px] text-alarm-500">no citations</span>
+          <span className="text-[10px] text-alarm">no citations</span>
         )}
-        <span className="ml-2 text-[11px] text-mist-400">
-          confidence {(hypothesis.confidence * 100).toFixed(0)}% · critic support{' '}
+        <span className="tnum ml-1 text-[10px] text-fg-3">
+          conf {(hypothesis.confidence * 100).toFixed(0)}% · support{' '}
           {(hypothesis.support_score * 100).toFixed(0)}%
         </span>
       </div>
 
       {hypothesis.critic_note && (
-        <p className="mt-2 rounded border border-ink-700 bg-ink-900/60 px-3 py-2 text-[11px] leading-relaxed text-mist-300">
-          <span className="font-medium text-mist-100">Critic: </span>
+        <p className="mt-1.5 border-l-2 border-line-strong pl-2 text-[10.5px] leading-snug text-fg-2">
+          <span className="font-medium text-fg">Critic. </span>
           {hypothesis.critic_note}
         </p>
       )}
 
       {hypothesis.unsupported_claims.length > 0 && (
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-1.5 space-y-0.5">
           {hypothesis.unsupported_claims.map((claim) => (
-            <li key={claim} className="text-[11px] text-warn-500">
-              Unsupported: {claim}
+            <li key={claim} className="flex gap-1.5 text-[10.5px] leading-snug text-warn">
+              <span aria-hidden>▲</span>
+              <span>Unsupported: {claim}</span>
             </li>
           ))}
         </ul>
@@ -124,27 +171,36 @@ function HypothesisCard({
 }
 
 function EvidenceCard({ item, highlighted }: { item: Evidence; highlighted: boolean }) {
+  const isKnowledge = item.kind === 'knowledge'
   return (
     <article
       id={`evidence-${item.ref}`}
       data-testid={`evidence-${item.ref}`}
-      className={`rounded-lg border px-4 py-3 transition ${
-        highlighted ? 'border-signal-500 bg-signal-500/10' : 'border-ink-800 bg-ink-850/50'
+      className={`scroll-mt-4 rounded-sm border px-2.5 py-2 transition-colors duration-200 ${
+        highlighted ? 'border-info bg-info-dim' : 'border-line bg-raised'
       }`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="rounded border border-signal-500/30 bg-signal-500/10 px-1.5 py-0.5 font-mono text-[10px] text-signal-400">
-            {item.ref}
-          </span>
-          <span className="text-sm text-mist-100">{item.title}</span>
+      <div className="flex items-start gap-2">
+        <span
+          className={`tnum mt-px shrink-0 rounded-xs border px-1 py-px text-[10px] ${
+            isKnowledge
+              ? 'border-warn/30 bg-warn-dim text-warn'
+              : 'border-info/30 bg-info-dim text-info'
+          }`}
+        >
+          {item.ref}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-[11.5px] leading-snug font-medium text-fg">{item.title}</h3>
+            <Badge value={item.kind} tone="neutral" />
+          </div>
+          <pre className="mt-1 font-sans text-[11px] leading-snug whitespace-pre-wrap text-fg-2">
+            {item.content}
+          </pre>
+          <p className="tnum mt-1 text-[10px] text-fg-3">{item.source}</p>
         </div>
-        <Pill value={item.kind} />
       </div>
-      <pre className="mt-2 whitespace-pre-wrap font-sans text-xs leading-relaxed text-mist-300">
-        {item.content}
-      </pre>
-      <p className="mt-1.5 font-mono text-[10px] text-mist-400">{item.source}</p>
     </article>
   )
 }
@@ -153,60 +209,68 @@ function RemediationPanel({ incidentId, plan }: { incidentId: number; plan: Plan
   const approve = useApprove()
   const reject = useReject()
   const pending = plan.status === 'awaiting_approval'
+  const dryRun = plan.status === 'dry_run'
 
   return (
-    <div data-testid="remediation-plan" className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-sm text-signal-400">{plan.action_id}</span>
-          <Pill value={plan.risk} label={`${plan.risk} risk`} />
+    <div data-testid="remediation-plan" className="space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <code className="rounded-xs border border-info/25 bg-info-dim px-1.5 py-0.5 text-[11px] text-info">
+            {plan.action_id}
+          </code>
+          <Badge value={plan.risk} label={`${plan.risk} risk`} />
         </div>
-        <Pill value={plan.status} />
+        <span className="shrink-0">
+          <Badge value={plan.status} />
+        </span>
       </div>
 
-      <dl className="grid grid-cols-2 gap-2 text-xs">
+      <div className="grid grid-cols-2 gap-1.5">
         {Object.entries(plan.params).map(([key, value]) => (
-          <div key={key} className="rounded border border-ink-800 bg-ink-900/60 px-3 py-2">
-            <dt className="text-[10px] uppercase tracking-wider text-mist-400">{key}</dt>
-            <dd className="mt-0.5 font-mono text-mist-100">{String(value)}</dd>
-          </div>
+          <Field key={key} label={key}>
+            <span className="tnum">{String(value)}</span>
+          </Field>
         ))}
+      </div>
+
+      <dl className="space-y-1.5 text-[11px] leading-snug text-fg-2">
+        <div>
+          <dt className="inline font-medium text-fg">Rationale. </dt>
+          <dd className="inline">{plan.rationale}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-fg">Expected effect. </dt>
+          <dd className="inline">{plan.expected_effect}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-fg">Rollback. </dt>
+          <dd className="inline">{plan.rollback}</dd>
+        </div>
       </dl>
 
-      <div className="space-y-2 text-xs leading-relaxed text-mist-300">
-        <p>
-          <span className="font-medium text-mist-100">Rationale. </span>
-          {plan.rationale}
-        </p>
-        <p>
-          <span className="font-medium text-mist-100">Expected effect. </span>
-          {plan.expected_effect}
-        </p>
-        <p>
-          <span className="font-medium text-mist-100">Rollback. </span>
-          {plan.rollback}
-        </p>
-      </div>
-
-      {plan.result?.detail !== undefined && (
-        <p className="rounded border border-ink-700 bg-ink-900/60 px-3 py-2 text-[11px] text-mist-300">
-          {String(plan.result.detail)}
+      {typeof plan.result?.detail === 'string' && (
+        <p
+          className={`rounded-sm border px-2 py-1.5 text-[11px] leading-snug ${
+            dryRun ? 'border-warn/30 bg-warn-dim text-warn' : 'border-line bg-raised text-fg-2'
+          }`}
+        >
+          {plan.result.detail}
         </p>
       )}
 
       {pending ? (
-        <div className="flex items-center gap-2 pt-1">
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-line pt-2">
           <Button
-            variant="primary"
+            variant="approve"
+            icon={<IconCheck size={13} />}
             disabled={approve.isPending}
-            onClick={() =>
-              approve.mutate({ incidentId, planId: plan.id, approver: 'operator' })
-            }
+            onClick={() => approve.mutate({ incidentId, planId: plan.id, approver: 'operator' })}
           >
-            {approve.isPending ? 'Executing...' : 'Approve and execute'}
+            {approve.isPending ? 'Executing…' : 'Approve and execute'}
           </Button>
           <Button
             variant="danger"
+            icon={<IconX size={13} />}
             disabled={reject.isPending}
             onClick={() =>
               reject.mutate({
@@ -219,11 +283,15 @@ function RemediationPanel({ incidentId, plan }: { incidentId: number; plan: Plan
           >
             Reject
           </Button>
+          <span className="ml-auto flex items-center gap-1 text-[10px] text-fg-3">
+            <IconShield size={12} />
+            nothing runs without approval
+          </span>
         </div>
       ) : (
-        <p className="text-[11px] text-mist-400">
-          {plan.approved_by ? `Actioned by ${plan.approved_by}` : 'No operator action recorded'}
-          {plan.executed_at ? ` · executed ${fmtTime(plan.executed_at)}` : ''}
+        <p className="tnum border-t border-line pt-2 text-[10px] text-fg-3">
+          {plan.approved_by ? `actioned by ${plan.approved_by}` : 'no operator action recorded'}
+          {plan.executed_at ? ` · ${fmtTime(plan.executed_at)}` : ''}
         </p>
       )}
     </div>
@@ -239,10 +307,12 @@ export function IncidentInvestigation() {
 
   const selectCitation = (ref: string) => {
     setHighlight(ref)
-    document.getElementById(`evidence-${ref}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    document
+      .getElementById(`evidence-${ref}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  if (isLoading) return <Empty>Loading investigation.</Empty>
+  if (isLoading) return <Empty>Loading investigation…</Empty>
   if (!incident) return <Empty>Incident not found.</Empty>
 
   const telemetry = incident.evidence.filter((e) => e.kind !== 'knowledge')
@@ -250,129 +320,152 @@ export function IncidentInvestigation() {
   const plan = incident.plans.at(-1)
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-3">
-        <Link to="/incidents" className="text-xs text-mist-400 hover:text-mist-100">
-          &larr; All investigations
+    <div className="space-y-3">
+      <header className="space-y-2">
+        <Link
+          to="/incidents"
+          className="inline-flex items-center gap-1 text-[11px] text-fg-3 transition-colors duration-150 hover:text-fg"
+        >
+          <IconArrowLeft size={12} />
+          All investigations
         </Link>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight" data-testid="incident-title">
+
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h1
+              className="text-base leading-tight font-semibold tracking-tight"
+              data-testid="incident-title"
+            >
               {incident.title}
             </h1>
-            <p className="mt-1 text-sm text-mist-400">
-              #{incident.id} · {incident.service} · detected by {incident.detector} ·{' '}
-              {fmtTime(incident.opened_at)}
+            <p className="tnum mt-0.5 text-[11px] text-fg-3">
+              #{incident.id} · {incident.service} · {incident.detector} ·{' '}
+              {fmtAgo(incident.opened_at)}
             </p>
           </div>
-          <div className="flex items-center gap-2" data-testid="incident-status">
-            <Pill value={incident.severity} />
-            <Pill value={incident.status} />
+          <div className="flex items-center gap-1.5" data-testid="incident-status">
+            <Badge value={incident.severity} />
+            <Badge value={incident.status} />
           </div>
         </div>
+
         <WorkflowTrack state={incident.workflow_state} />
       </header>
 
       {incident.workflow_error && (
-        <Card title="Workflow error">
-          <p className="font-mono text-xs text-alarm-500">{incident.workflow_error}</p>
-        </Card>
+        <Panel title="Workflow error">
+          <p className="tnum text-[11px] text-alarm">{incident.workflow_error}</p>
+        </Panel>
       )}
 
-      <div className="grid grid-cols-3 gap-5">
-        <Card className="col-span-2" title="Summary" subtitle="Written from the cited evidence">
-          <p className="text-sm leading-relaxed text-mist-100" data-testid="incident-summary">
-            {incident.summary || 'Investigation in progress.'}
-          </p>
-          {incident.root_cause && (
-            <p className="mt-3 rounded-lg border border-ink-700 bg-ink-900/60 px-4 py-3 text-sm leading-relaxed text-mist-100">
-              <span className="font-medium text-signal-400">Root cause. </span>
-              {incident.root_cause}
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        <div className="space-y-3">
+          <Panel title="Assessment" hint="written from cited evidence">
+            <p className="text-xs leading-relaxed text-fg" data-testid="incident-summary">
+              {incident.summary || 'Investigation in progress…'}
             </p>
-          )}
-          {incident.llm_usage?.calls ? (
-            <p className="mt-3 text-[11px] text-mist-400">
-              {incident.llm_usage.calls} reasoning calls · {incident.llm_usage.input_tokens} in /{' '}
-              {incident.llm_usage.output_tokens} out tokens · $
-              {(incident.llm_usage.cost_usd ?? 0).toFixed(4)}
-            </p>
-          ) : null}
-        </Card>
-
-        <Card title={`${incident.service} p95 latency`}>
-          {metrics?.length ? (
-            <MetricChart data={metrics} metric="latency_p95_ms" />
-          ) : (
-            <Empty>No telemetry.</Empty>
-          )}
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-2 gap-5">
-        <Card
-          title="Root cause hypotheses"
-          subtitle="Generated, then reviewed by an adversarial critic, then ranked"
-        >
-          {incident.hypotheses.length ? (
-            <div className="space-y-3">
-              {incident.hypotheses.map((h) => (
-                <HypothesisCard key={h.id} hypothesis={h} onSelect={selectCitation} />
-              ))}
+            {incident.root_cause && (
+              <p className="mt-2 rounded-sm border-l-2 border-info bg-raised px-2.5 py-1.5 text-xs leading-relaxed text-fg">
+                <span className="font-medium text-info">Root cause. </span>
+                {incident.root_cause}
+              </p>
+            )}
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line pt-2 text-[10px] text-fg-3">
+              <span className="flex items-center gap-1">
+                <IconGauge size={11} />
+                {telemetry.length} evidence items
+              </span>
+              <span className="flex items-center gap-1">
+                <IconDoc size={11} />
+                {knowledge.length} documents retrieved
+              </span>
+              {incident.llm_usage?.calls ? (
+                <span className="tnum">
+                  {incident.llm_usage.calls} reasoning calls ·{' '}
+                  {incident.llm_usage.input_tokens}/{incident.llm_usage.output_tokens} tok · $
+                  {(incident.llm_usage.cost_usd ?? 0).toFixed(4)}
+                </span>
+              ) : (
+                <span>deterministic provider · no model calls</span>
+              )}
             </div>
-          ) : (
-            <Empty>No hypotheses yet.</Empty>
-          )}
-        </Card>
+          </Panel>
 
-        <Card
-          title="Proposed remediation"
-          subtitle="One action from the approved catalogue. Nothing runs without approval."
-        >
-          {plan ? <RemediationPanel incidentId={incident.id} plan={plan} /> : <Empty>No plan yet.</Empty>}
-        </Card>
-      </div>
+          <Panel
+            title="Root cause hypotheses"
+            hint="generated, criticised, then ranked"
+            bodyClass="space-y-1.5 p-2"
+          >
+            {incident.hypotheses.length ? (
+              incident.hypotheses.map((h) => (
+                <HypothesisCard key={h.id} hypothesis={h} onSelect={selectCitation} />
+              ))
+            ) : (
+              <Empty>No hypotheses yet.</Empty>
+            )}
+          </Panel>
 
-      <div className="grid grid-cols-2 gap-5">
-        <Card title="Evidence" subtitle="Collected deterministically from telemetry and the change log">
-          <div className="space-y-3">
+          <Panel title={`${incident.service} p95 latency`} hint="origin service">
+            {metrics?.length ? (
+              <MetricChart data={metrics} metric="latency_p95_ms" height={130} />
+            ) : (
+              <Empty>No telemetry.</Empty>
+            )}
+          </Panel>
+        </div>
+
+        <div className="space-y-3">
+          <Panel title="Proposed remediation" hint="one action from the allowlist">
+            {plan ? (
+              <RemediationPanel incidentId={incident.id} plan={plan} />
+            ) : (
+              <Empty>No plan proposed yet.</Empty>
+            )}
+          </Panel>
+
+          <Panel
+            title="Evidence"
+            hint={`${telemetry.length} telemetry · ${knowledge.length} retrieved`}
+            bodyClass="max-h-[640px] space-y-1.5 overflow-y-auto p-2"
+          >
             {telemetry.map((item) => (
               <EvidenceCard key={item.id} item={item} highlighted={highlight === item.ref} />
             ))}
-          </div>
-        </Card>
-
-        <Card title="Retrieved documents" subtitle="Hybrid BM25 + dense retrieval over the knowledge base">
-          {knowledge.length ? (
-            <div className="space-y-3">
-              {knowledge.map((item) => (
-                <EvidenceCard key={item.id} item={item} highlighted={highlight === item.ref} />
-              ))}
-            </div>
-          ) : (
-            <Empty>Nothing retrieved.</Empty>
-          )}
-        </Card>
+            {knowledge.length > 0 && (
+              <p className="px-0.5 pt-1.5 text-[9.5px] uppercase tracking-[0.08em] text-fg-3">
+                Retrieved documents
+              </p>
+            )}
+            {knowledge.map((item) => (
+              <EvidenceCard key={item.id} item={item} highlighted={highlight === item.ref} />
+            ))}
+          </Panel>
+        </div>
       </div>
 
-      <Card title="Audit timeline" subtitle="Actions performed and decisions made">
-        <ol className="space-y-2" data-testid="timeline">
+      <Panel title="Audit timeline" hint="actions performed and decisions made" bodyClass="p-0">
+        <ol data-testid="timeline">
           {incident.events.map((event) => (
             <li
               key={event.id}
-              className="flex gap-3 rounded-lg border border-ink-800 bg-ink-850/50 px-4 py-2.5"
+              className="flex gap-2 border-t border-line px-3 py-1.5 first:border-t-0"
             >
-              <span className="w-20 shrink-0 font-mono text-[11px] text-mist-400">
+              <span className="tnum w-16 shrink-0 text-[10px] text-fg-3">
                 {fmtTime(event.ts)}
               </span>
-              <span className="w-44 shrink-0">
-                <Pill value={event.kind} />
+              <span className="w-40 shrink-0">
+                <Badge value={event.kind} />
               </span>
-              <span className="flex-1 text-xs leading-relaxed text-mist-300">{event.message}</span>
-              <span className="shrink-0 font-mono text-[10px] text-mist-400">{event.actor}</span>
+              <span className="min-w-0 flex-1 text-[11px] leading-snug text-fg-2">
+                {event.message}
+              </span>
+              <span className="tnum hidden w-20 shrink-0 text-right text-[10px] text-fg-3 sm:block">
+                {event.actor}
+              </span>
             </li>
           ))}
         </ol>
-      </Card>
+      </Panel>
     </div>
   )
 }

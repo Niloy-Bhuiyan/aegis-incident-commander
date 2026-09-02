@@ -9,7 +9,7 @@ import { expect, test } from '@playwright/test'
 test.beforeEach(async ({ page }) => {
   await page.goto('/lab')
   await page.getByRole('button', { name: /restore system/i }).click()
-  await expect(page.getByText('none', { exact: true })).toBeVisible()
+  await expect(page.getByTestId('active-faults')).toHaveText('none')
 })
 
 test('a healthy platform reports no incident', async ({ page }) => {

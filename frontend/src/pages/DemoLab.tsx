@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 
-import { Button, Card, Empty, Pill, fmtTime } from '../components/ui'
+import { IconIncident, IconPlay, IconRotate, IconShield } from '../components/icons'
+import { Badge, Button, Empty, Field, Panel, fmtTime } from '../components/ui'
 import {
   useActions,
   useIncidents,
@@ -19,106 +20,122 @@ export function DemoLab() {
   const restore = useRestore()
   const navigate = useNavigate()
 
-  const active = status?.simulator.active_scenarios ?? []
-  const openIncident = (incidents ?? []).find((i) => !['resolved', 'cancelled'].includes(i.status))
+  const simulator = status?.telemetry
+  const active = simulator?.active_scenarios ?? []
+  const applied = simulator?.applied_actions ?? []
+  const openIncident = (incidents ?? []).find(
+    (incident) => !['resolved', 'cancelled'].includes(incident.status),
+  )
+  const readOnlySource = simulator?.supports_remediation === false
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-end justify-between">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Demo Lab</h1>
-          <p className="mt-1 text-sm text-mist-400">
+          <h1 className="text-base font-semibold tracking-tight">Demo Lab</h1>
+          <p className="text-[11px] text-fg-3">
             Inject a failure into the simulated platform and watch detection, investigation and
             recovery run.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {openIncident && (
-            <Button onClick={() => navigate(`/incidents/${openIncident.id}`)}>
-              Open investigation #{openIncident.id}
+            <Button
+              icon={<IconIncident size={13} />}
+              onClick={() => navigate(`/incidents/${openIncident.id}`)}
+            >
+              Investigation #{openIncident.id}
             </Button>
           )}
           <Button
             variant="danger"
+            icon={<IconRotate size={13} />}
             disabled={restore.isPending}
             onClick={() => restore.mutate()}
-            title="Clear all injected faults and cancel active incidents"
+            title="Clear injected faults and cancel active incidents"
           >
-            {restore.isPending ? 'Restoring...' : 'Restore system'}
+            {restore.isPending ? 'Restoring…' : 'Restore system'}
           </Button>
         </div>
-      </header>
+      </div>
 
-      <Card
+      {readOnlySource && (
+        <p className="rounded-sm border border-warn/30 bg-warn-dim px-2.5 py-1.5 text-[11px] text-warn">
+          This instance reads a real metrics backend. The Demo Lab drives the simulator only.
+        </p>
+      )}
+
+      <Panel
         title="Simulator state"
-        actions={<Pill value={status?.simulator.healthy ? 'healthy' : 'degraded'} />}
+        actions={<Badge value={simulator?.healthy ? 'healthy' : 'degraded'} />}
       >
-        <div className="grid grid-cols-3 gap-3 text-xs">
-          <div className="rounded border border-ink-800 bg-ink-900/60 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-mist-400">Ticks elapsed</div>
-            <div className="mt-0.5 font-mono text-mist-100">{status?.simulator.tick ?? 0}</div>
-          </div>
-          <div className="rounded border border-ink-800 bg-ink-900/60 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-mist-400">Active faults</div>
-            <div className="mt-0.5 font-mono text-mist-100">
-              {active.length ? active.join(', ') : 'none'}
-            </div>
-          </div>
-          <div className="rounded border border-ink-800 bg-ink-900/60 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-mist-400">
-              Actions executed
-            </div>
-            <div className="mt-0.5 font-mono text-mist-100">
-              {status?.simulator.applied_actions.length ?? 0}
-            </div>
-          </div>
+        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+          <Field label="ticks elapsed">
+            <span className="tnum">{simulator?.tick ?? 0}</span>
+          </Field>
+          <Field label="active faults">
+            {/* Distinguish "not loaded yet" from "loaded, nothing active" - they
+                are different facts, and conflating them makes a waiting test
+                pass against stale state. */}
+            <span data-testid="active-faults" className="tnum">
+              {!simulator ? '—' : active.length ? active.join(', ') : 'none'}
+            </span>
+          </Field>
+          <Field label="actions executed">
+            <span className="tnum">{applied.length}</span>
+          </Field>
         </div>
 
-        {status?.simulator.applied_actions.length ? (
-          <ul className="mt-3 space-y-1.5">
-            {status.simulator.applied_actions.map((action, index) => (
+        {applied.length > 0 && (
+          <ul className="mt-2 space-y-1 border-t border-line pt-2">
+            {applied.map((action, index) => (
               <li
                 key={`${action.action_id}-${index}`}
-                className="flex items-center justify-between rounded border border-ink-800 bg-ink-850/50 px-3 py-2 text-xs"
+                className="flex flex-wrap items-center gap-2 rounded-sm border border-line bg-raised px-2 py-1.5"
               >
-                <span className="font-mono text-mist-100">
-                  {action.action_id} on {action.service}
-                </span>
-                <span className="flex items-center gap-2">
-                  <Pill
+                <code className="tnum text-[11px] text-info">
+                  {action.action_id}
+                </code>
+                <span className="text-[11px] text-fg-2">on {action.service}</span>
+                <span className="ml-auto flex items-center gap-1.5">
+                  <Badge
                     value={action.resolved_fault ? 'healthy' : 'unknown'}
                     label={action.resolved_fault ? 'cleared the fault' : 'no effect on fault'}
                   />
-                  <span className="font-mono text-[10px] text-mist-400">{fmtTime(action.at)}</span>
+                  <span className="tnum text-[10px] text-fg-3">{fmtTime(action.at)}</span>
                 </span>
               </li>
             ))}
           </ul>
-        ) : null}
-      </Card>
+        )}
+      </Panel>
 
-      <Card title="Inject a failure" subtitle="Each scenario has a distinct signal fingerprint">
-        <div className="grid grid-cols-3 gap-4" data-testid="scenario-list">
+      <Panel title="Inject a failure" hint="each scenario has a distinct signal fingerprint">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-3" data-testid="scenario-list">
           {(scenarios ?? []).map((scenario) => {
             const running = active.includes(scenario.id)
             return (
               <article
                 key={scenario.id}
-                className="flex flex-col rounded-lg border border-ink-800 bg-ink-850/50 px-4 py-4"
+                className={`flex flex-col rounded-sm border px-2.5 py-2 ${
+                  running ? 'border-alarm/40 bg-alarm-dim/40' : 'border-line bg-raised'
+                }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-sm font-medium text-mist-100">{scenario.title}</h3>
-                  {running && <Pill value="degraded" label="active" />}
+                  <h3 className="text-xs font-medium text-fg">{scenario.title}</h3>
+                  {running && <Badge value="degraded" label="active" />}
                 </div>
-                <p className="mt-1.5 flex-1 text-xs leading-relaxed text-mist-300">
+                <p className="mt-1 flex-1 text-[11px] leading-snug text-fg-2">
                   {scenario.description}
                 </p>
-                <p className="mt-2 font-mono text-[10px] text-mist-400">
+                <p className="tnum mt-1.5 text-[10px] text-fg-3">
                   origin: {scenario.primary_service}
                 </p>
-                <div className="mt-3">
+                <div className="mt-2">
                   <Button
-                    variant="primary"
+                    size="sm"
+                    variant="approve"
+                    icon={<IconPlay size={11} />}
                     disabled={running || inject.isPending}
                     onClick={() => inject.mutate(scenario.id)}
                   >
@@ -130,27 +147,33 @@ export function DemoLab() {
           })}
         </div>
         {inject.isError && (
-          <p className="mt-3 text-xs text-alarm-500">{(inject.error as Error).message}</p>
+          <p className="mt-2 text-[11px] text-alarm">{(inject.error as Error).message}</p>
         )}
-      </Card>
+      </Panel>
 
-      <Card
+      <Panel
         title="Approved remediation catalogue"
-        subtitle="The complete set of actions Aegis can propose. Nothing else is executable."
+        hint="the complete set of executable actions"
+        actions={
+          <span className="flex items-center gap-1 text-[10px] text-fg-3">
+            <IconShield size={11} />
+            allowlist
+          </span>
+        }
       >
         {actions?.length ? (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-1.5 md:grid-cols-2 xl:grid-cols-3">
             {actions.map((action) => (
               <article
                 key={action.id}
-                className="rounded-lg border border-ink-800 bg-ink-850/50 px-4 py-3"
+                className="rounded-sm border border-line bg-raised px-2.5 py-2"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs text-signal-400">{action.id}</span>
-                  <Pill value={action.risk} />
+                  <code className="tnum text-[11px] text-info">{action.id}</code>
+                  <Badge value={action.risk} />
                 </div>
-                <p className="mt-1.5 text-xs leading-relaxed text-mist-300">{action.description}</p>
-                <p className="mt-2 font-mono text-[10px] text-mist-400">
+                <p className="mt-1 text-[11px] leading-snug text-fg-2">{action.description}</p>
+                <p className="tnum mt-1 text-[10px] text-fg-3">
                   {action.params.map((p) => `${p.name}:${p.kind}`).join(', ')}
                 </p>
               </article>
@@ -159,7 +182,7 @@ export function DemoLab() {
         ) : (
           <Empty>Catalogue unavailable.</Empty>
         )}
-      </Card>
+      </Panel>
     </div>
   )
 }

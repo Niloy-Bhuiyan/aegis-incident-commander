@@ -17,6 +17,13 @@ export const useServiceMetrics = (name: string) =>
     refetchInterval: LIVE,
   })
 
+export const useAllServiceMetrics = () =>
+  useQuery({
+    queryKey: ['metrics', 'all'],
+    queryFn: () => api.allServiceMetrics(),
+    refetchInterval: LIVE,
+  })
+
 export const useChanges = () =>
   useQuery({ queryKey: ['changes'], queryFn: () => api.changes(), refetchInterval: LIVE * 3 })
 

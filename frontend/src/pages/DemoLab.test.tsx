@@ -39,7 +39,7 @@ describe('DemoLab', () => {
     ])
     mocked.systemStatus.mockResolvedValue({
       ...statusFixture,
-      simulator: { ...statusFixture.simulator, active_scenarios: [] },
+      telemetry: { ...statusFixture.telemetry, active_scenarios: [] },
     })
     mocked.actions.mockResolvedValue([
       {

@@ -1,55 +1,82 @@
 import { Link } from 'react-router-dom'
 
+import type { MetricPoint, ServiceHealth } from '../api/types'
 import { MetricChart } from '../components/MetricChart'
-import { Card, Empty, Pill, Stat, fmtMs, fmtPct, fmtTime } from '../components/ui'
-import { useChanges, useIncidents, useServiceMetrics, useSystemStatus } from '../hooks/queries'
+import { Sparkline } from '../components/Sparkline'
+import { IconCommit, IconIncident, IconLink, TierIcon } from '../components/icons'
+import {
+  Badge,
+  Empty,
+  Metric,
+  Panel,
+  StatusDot,
+  fmtAgo,
+  fmtMs,
+  fmtNum,
+  fmtPct,
+} from '../components/ui'
+import {
+  useAllServiceMetrics,
+  useChanges,
+  useIncidents,
+  useServiceMetrics,
+  useSystemStatus,
+} from '../hooks/queries'
 
-function ServiceRow({
-  name,
-  tier,
-  status,
-  latency,
-  slo,
-  errorRate,
-  errorSlo,
-  saturation,
-  breaches,
-}: {
-  name: string
-  tier: string
-  status: string
-  latency: number | null
-  slo: number
-  errorRate: number | null
-  errorSlo: number
-  saturation: number | null
-  breaches: string[]
-}) {
-  const latencyBad = latency !== null && latency > slo
-  const errorBad = errorRate !== null && errorRate > errorSlo
+function ServiceRow({ service, series }: { service: ServiceHealth; series: MetricPoint[] }) {
+  const latencyBreached =
+    service.latency_p95_ms !== null && service.latency_p95_ms > service.slo_latency_p95_ms
+  const errorBreached =
+    service.error_rate !== null && service.error_rate > service.slo_error_rate
+  const saturationBreached = service.saturation !== null && service.saturation > 0.92
+
   return (
-    <div
-      data-testid={`service-${name}`}
-      className="grid grid-cols-[1.4fr_repeat(3,minmax(0,1fr))_auto] items-center gap-3 border-b border-ink-800 px-1 py-2.5 last:border-0"
+    <tr
+      data-testid={`service-${service.name}`}
+      className="border-t border-line transition-colors duration-150 hover:bg-raised"
     >
-      <div>
-        <div className="text-sm text-mist-100">{name}</div>
-        <div className="text-[11px] text-mist-400">{tier}</div>
-      </div>
-      <div className={`font-mono text-sm ${latencyBad ? 'text-alarm-500' : 'text-mist-300'}`}>
-        {fmtMs(latency)}
-        <span className="ml-1 text-[10px] text-mist-400">/ {fmtMs(slo)}</span>
-      </div>
-      <div className={`font-mono text-sm ${errorBad ? 'text-alarm-500' : 'text-mist-300'}`}>
-        {fmtPct(errorRate)}
-      </div>
-      <div className="font-mono text-sm text-mist-300">
-        {saturation === null ? '--' : saturation.toFixed(2)}
-      </div>
-      <div title={breaches.join('\n')}>
-        <Pill value={status} />
-      </div>
-    </div>
+      <td className="py-1.5 pl-3 pr-2">
+        <div className="flex items-center gap-2">
+          <TierIcon tier={service.tier} size={13} className="shrink-0 text-fg-3" />
+          <span className="truncate text-xs text-fg">{service.name}</span>
+        </div>
+      </td>
+      <td className="hidden px-2 py-1.5 md:table-cell">
+        <Sparkline
+          values={series.map((p) => p.latency_p95_ms)}
+          threshold={service.slo_latency_p95_ms}
+          label={`${service.name} p95 latency trend`}
+        />
+      </td>
+      <td className="px-2 py-1.5 text-right">
+        <Metric
+          value={fmtMs(service.latency_p95_ms)}
+          threshold={fmtMs(service.slo_latency_p95_ms)}
+          breached={latencyBreached}
+          className="text-xs"
+        />
+      </td>
+      <td className="px-2 py-1.5 text-right">
+        <Metric
+          value={fmtPct(service.error_rate)}
+          threshold={fmtPct(service.slo_error_rate, 1)}
+          breached={errorBreached}
+          className="text-xs"
+        />
+      </td>
+      <td className="hidden px-2 py-1.5 text-right sm:table-cell">
+        <Metric
+          value={fmtNum(service.saturation)}
+          breached={saturationBreached}
+          className="text-xs"
+        />
+      </td>
+      <td className="py-1.5 pl-2 pr-3 text-right">
+        <span title={service.breaches.join('\n') || 'Inside every SLO'}>
+          <Badge value={service.status} />
+        </span>
+      </td>
+    </tr>
   )
 }
 
@@ -57,164 +84,191 @@ export function CommandCenter() {
   const { data: status, isLoading } = useSystemStatus()
   const { data: incidents } = useIncidents()
   const { data: changes } = useChanges()
-  const { data: gatewayMetrics } = useServiceMetrics('gateway')
+  const { data: allMetrics } = useAllServiceMetrics()
 
   const active = (incidents ?? []).filter(
-    (i) => !['resolved', 'cancelled'].includes(i.status),
+    (incident) => !['resolved', 'cancelled'].includes(incident.status),
   )
-  const recent = (incidents ?? []).slice(0, 6)
-  const gateway = status?.services.find((s) => s.name === 'gateway')
+  const focusService = active[0]?.service ?? 'gateway'
+  const { data: focusMetrics } = useServiceMetrics(focusService)
+  const focus = status?.services.find((s) => s.name === focusService)
+
   const degraded = (status?.services ?? []).filter((s) => s.status === 'degraded')
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-end justify-between">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Command Center</h1>
-          <p className="mt-1 text-sm text-mist-400">
-            Live platform health, open investigations and the change log.
+          <h1 className="text-base font-semibold tracking-tight">Command Center</h1>
+          <p className="text-[11px] text-fg-3">
+            {isLoading
+              ? 'Connecting to telemetry…'
+              : degraded.length
+                ? `${degraded.length} of ${status?.services.length} services outside SLO`
+                : `All ${status?.services.length ?? 0} services inside SLO`}
           </p>
         </div>
-        <div data-testid="platform-status">
-          <Pill value={status?.healthy ? 'healthy' : 'degraded'} />
-        </div>
-      </header>
-
-      <div className="grid grid-cols-4 gap-4">
-        <Stat
-          label="Platform"
-          value={isLoading ? '...' : status?.healthy ? 'Healthy' : 'Degraded'}
-          tone={status?.healthy ? 'ok' : 'alarm'}
-          hint={`${degraded.length} service(s) outside SLO`}
-        />
-        <Stat
-          label="Active incidents"
-          value={active.length}
-          tone={active.length ? 'alarm' : 'ok'}
-          hint={active.length ? active[0].title : 'nothing open'}
-        />
-        <Stat
-          label="Gateway p95"
-          value={fmtMs(gateway?.latency_p95_ms ?? null)}
-          tone={
-            gateway && gateway.latency_p95_ms !== null &&
-            gateway.latency_p95_ms > gateway.slo_latency_p95_ms
-              ? 'alarm'
-              : 'ok'
-          }
-          hint={`SLO ${fmtMs(gateway?.slo_latency_p95_ms)}`}
-        />
-        <Stat
-          label="Gateway errors"
-          value={fmtPct(gateway?.error_rate ?? null)}
-          tone={
-            gateway && gateway.error_rate !== null && gateway.error_rate > gateway.slo_error_rate
-              ? 'alarm'
-              : 'ok'
-          }
-          hint={`SLO ${fmtPct(gateway?.slo_error_rate)}`}
-        />
+        {active.length > 0 && (
+          <Link
+            to={`/incidents/${active[0].id}`}
+            className="flex items-center gap-2 rounded-sm border border-alarm/40 bg-alarm-dim px-2.5 py-1.5 text-xs text-alarm transition-colors duration-150 hover:bg-alarm/20"
+          >
+            <IconIncident size={14} />
+            <span className="truncate">{active[0].title}</span>
+            <Badge value={active[0].workflow_state} tone="warn" />
+          </Link>
+        )}
       </div>
 
-      <div className="grid grid-cols-3 gap-5">
-        <Card
-          className="col-span-2"
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <Panel
           title="Services"
-          subtitle="Latest sample against each service SLO"
+          hint="latest sample vs SLO"
+          bodyClass="p-0"
+          actions={
+            status ? (
+              <span className="tnum text-[10px] text-fg-3">
+                {status.services.filter((s) => s.status === 'healthy').length}/
+                {status.services.length} healthy
+              </span>
+            ) : null
+          }
         >
-          <div className="grid grid-cols-[1.4fr_repeat(3,minmax(0,1fr))_auto] gap-3 border-b border-ink-800 px-1 pb-2 text-[11px] uppercase tracking-wider text-mist-400">
-            <span>Service</span>
-            <span>p95 / SLO</span>
-            <span>Errors</span>
-            <span>Saturation</span>
-            <span>State</span>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] border-collapse">
+              <thead>
+                <tr className="text-[9.5px] uppercase tracking-[0.08em] text-fg-3">
+                  <th className="py-1.5 pl-3 pr-2 text-left font-medium">Service</th>
+                  <th className="hidden px-2 py-1.5 text-left font-medium md:table-cell">
+                    p95 trend
+                  </th>
+                  <th className="px-2 py-1.5 text-right font-medium">p95 / SLO</th>
+                  <th className="px-2 py-1.5 text-right font-medium">errors / SLO</th>
+                  <th className="hidden px-2 py-1.5 text-right font-medium sm:table-cell">
+                    saturation
+                  </th>
+                  <th className="py-1.5 pl-2 pr-3 text-right font-medium">State</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(status?.services ?? []).map((service) => (
+                  <ServiceRow
+                    key={service.name}
+                    service={service}
+                    series={allMetrics?.[service.name] ?? []}
+                  />
+                ))}
+              </tbody>
+            </table>
           </div>
-          {(status?.services ?? []).map((service) => (
-            <ServiceRow
-              key={service.name}
-              name={service.name}
-              tier={service.tier}
-              status={service.status}
-              latency={service.latency_p95_ms}
-              slo={service.slo_latency_p95_ms}
-              errorRate={service.error_rate}
-              errorSlo={service.slo_error_rate}
-              saturation={service.saturation}
-              breaches={service.breaches}
-            />
-          ))}
-        </Card>
+        </Panel>
 
-        <Card title="Gateway p95 latency" subtitle="Customer-facing edge">
-          {gatewayMetrics?.length ? (
+        <Panel
+          title={focusService}
+          hint="p95 latency"
+          actions={focus ? <StatusDot value={focus.status} /> : null}
+        >
+          {focusMetrics?.length ? (
             <MetricChart
-              data={gatewayMetrics}
+              data={focusMetrics}
               metric="latency_p95_ms"
-              slo={gateway?.slo_latency_p95_ms}
+              slo={focus?.slo_latency_p95_ms}
+              height={140}
             />
           ) : (
             <Empty>Waiting for telemetry.</Empty>
           )}
-        </Card>
+          {focus && (
+            <div className="mt-2 grid grid-cols-3 gap-1.5 border-t border-line pt-2">
+              <div>
+                <div className="text-[9.5px] uppercase tracking-[0.08em] text-fg-3">p50</div>
+                <div className="tnum text-xs text-fg">{fmtMs(focus.latency_p50_ms)}</div>
+              </div>
+              <div>
+                <div className="text-[9.5px] uppercase tracking-[0.08em] text-fg-3">rps</div>
+                <div className="tnum text-xs text-fg">{focus.rps?.toFixed(0) ?? '—'}</div>
+              </div>
+              <div>
+                <div className="text-[9.5px] uppercase tracking-[0.08em] text-fg-3">saturation</div>
+                <div className="tnum text-xs text-fg">{fmtNum(focus.saturation)}</div>
+              </div>
+            </div>
+          )}
+        </Panel>
       </div>
 
-      <div className="grid grid-cols-2 gap-5">
-        <Card title="Incidents" subtitle="Newest first">
-          {recent.length === 0 ? (
-            <Empty>No incidents recorded yet. Inject a failure from the Demo Lab.</Empty>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <Panel
+          title="Incidents"
+          hint="newest first"
+          bodyClass="p-2"
+          actions={
+            <Link
+              to="/incidents"
+              className="text-[10px] text-fg-3 transition-colors duration-150 hover:text-info"
+            >
+              view all
+            </Link>
+          }
+        >
+          {!incidents?.length ? (
+            <Empty icon={<IconIncident size={18} />}>
+              No incidents recorded. Inject a failure from the Demo Lab to see the full
+              investigation flow.
+            </Empty>
           ) : (
-            <ul className="space-y-2" data-testid="incident-list">
-              {recent.map((incident) => (
+            <ul className="space-y-1" data-testid="incident-list">
+              {incidents.slice(0, 6).map((incident) => (
                 <li key={incident.id}>
                   <Link
                     to={`/incidents/${incident.id}`}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-ink-800 bg-ink-850/50 px-4 py-3 transition hover:border-ink-600"
+                    className="flex items-center gap-2 rounded-sm border border-line bg-raised px-2.5 py-1.5 transition-colors duration-150 hover:border-line-strong hover:bg-hover"
                   >
-                    <div className="min-w-0">
-                      <div className="truncate text-sm text-mist-100">{incident.title}</div>
-                      <div className="mt-0.5 text-[11px] text-mist-400">
-                        #{incident.id} · {incident.service} · opened {fmtTime(incident.opened_at)}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Pill value={incident.severity} />
-                      <Pill value={incident.status} />
-                    </div>
+                    <StatusDot value={incident.severity} />
+                    <span className="tnum shrink-0 text-[10px] text-fg-3">#{incident.id}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-fg">
+                      {incident.title}
+                    </span>
+                    <span className="tnum hidden shrink-0 text-[10px] text-fg-3 sm:inline">
+                      {fmtAgo(incident.opened_at)}
+                    </span>
+                    <Badge value={incident.status} />
                   </Link>
                 </li>
               ))}
             </ul>
           )}
-        </Card>
+        </Panel>
 
-        <Card title="Change log" subtitle="Deploys, config changes and capacity events">
-          {changes?.length ? (
-            <ul className="space-y-2">
-              {changes.slice(0, 6).map((change) => (
+        <Panel title="Change log" hint="deploys, config and capacity events" bodyClass="p-2">
+          {!changes?.length ? (
+            <Empty icon={<IconCommit size={18} />}>No changes recorded.</Empty>
+          ) : (
+            <ul className="space-y-1">
+              {changes.slice(0, 5).map((change) => (
                 <li
                   key={change.id}
-                  className="rounded-lg border border-ink-800 bg-ink-850/50 px-4 py-3"
+                  className="rounded-sm border border-line bg-raised px-2.5 py-1.5"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-mono text-xs text-signal-400">{change.version}</span>
-                    <div className="flex items-center gap-2">
-                      <Pill value={change.kind} />
-                      <Pill value={change.risk} />
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <IconLink size={12} className="shrink-0 text-fg-3" />
+                    <span className="tnum min-w-0 flex-1 truncate text-[11px] text-info">
+                      {change.version}
+                    </span>
+                    <Badge value={change.kind} tone="neutral" />
+                    <Badge value={change.risk} label={`${change.risk} risk`} />
                   </div>
-                  <p className="mt-1.5 text-xs leading-relaxed text-mist-300">
+                  <p className="mt-1 line-clamp-2 pl-5 text-[11px] leading-snug text-fg-2">
                     {change.change_summary}
                   </p>
-                  <p className="mt-1 text-[11px] text-mist-400">
-                    {change.service} · {fmtTime(change.ts)}
+                  <p className="tnum mt-0.5 pl-5 text-[10px] text-fg-3">
+                    {change.service} · {fmtAgo(change.ts)}
                   </p>
                 </li>
               ))}
             </ul>
-          ) : (
-            <Empty>No changes recorded.</Empty>
           )}
-        </Card>
+        </Panel>
       </div>
     </div>
   )

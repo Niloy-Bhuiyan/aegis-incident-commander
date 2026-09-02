@@ -41,6 +41,26 @@ VERDICT_MULTIPLIER = {
 
 KNOWLEDGE_TOP_K = 6
 
+SIGNAL_LABEL = {
+    "latency_p95": "latency",
+    "error_rate": "error rate",
+    "saturation": "saturation",
+}
+
+
+def _breach_summary(breaches: list[dict]) -> str:
+    """Readable one-liner: which services breached, and on which signals."""
+    by_service: dict[str, list[str]] = {}
+    for breach in breaches:
+        label = SIGNAL_LABEL.get(breach["signal"], breach["signal"])
+        by_service.setdefault(breach["service"], []).append(label)
+    parts = [
+        f"{service} ({'/'.join(signals)})" for service, signals in sorted(by_service.items())
+    ]
+    if not parts:
+        return "no sustained breaches recorded"
+    return f"{len(parts)} service(s) outside SLO: " + ", ".join(parts)
+
 
 @dataclass
 class RankedHypothesis:
@@ -187,9 +207,7 @@ class InvestigationWorkflow:
             incident_title=incident.title,
             service=incident.service,
             severity=incident.severity,
-            breach_summary="; ".join(
-                f"{b['service']} {b['signal']}" for b in incident.trigger.get("breaches", [])
-            ),
+            breach_summary=_breach_summary(incident.trigger.get("breaches", [])),
             evidence=items,
             knowledge=knowledge,
         )
@@ -205,7 +223,10 @@ class InvestigationWorkflow:
             session,
             incident,
             "hypotheses_generated",
-            f"{self.provider.name} produced {len(generated.hypotheses)} candidate root causes.",
+            (
+                f"{self.provider.name} produced {len(generated.hypotheses)} candidate root "
+                f"cause{'s' if len(generated.hypotheses) != 1 else ''}."
+            ),
             {"provider": self.provider.name, "model": self.provider.model},
         )
 

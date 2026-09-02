@@ -53,7 +53,13 @@ class DetectionResult:
             "error_rate": "error rate",
             "saturation": "saturation",
         }
-        readable = " and ".join(label.get(s, s) for s in signals) or "SLO"
+        names = [label.get(s, s) for s in signals]
+        if not names:
+            readable = "SLO"
+        elif len(names) == 1:
+            readable = names[0]
+        else:
+            readable = f"{', '.join(names[:-1])} and {names[-1]}"
         return f"{self.origin_service}: {readable} SLO breach"
 
     def as_trigger(self) -> dict:

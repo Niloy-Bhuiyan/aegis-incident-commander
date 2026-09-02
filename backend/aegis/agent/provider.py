@@ -30,6 +30,7 @@ from aegis.agent.schemas import (
     Usage,
 )
 from aegis.remediation.actions import catalogue
+from aegis.sim.topology import SERVICES
 
 # claude-opus-5 list price, USD per million tokens.
 INPUT_COST_PER_MTOK = 5.0
@@ -253,7 +254,6 @@ class HeuristicProvider:
         changes = [c for c in self._changes(ctx) if c.get("service") == service]
         config_change = next((c for c in changes if c.get("kind") == "config_change"), None)
         deploy = next((c for c in changes if c.get("kind") == "deploy"), None)
-        capacity = next((c for c in changes if c.get("kind") == "capacity_event"), None)
 
         out: list[HypothesisOut] = []
 
@@ -340,21 +340,38 @@ class HeuristicProvider:
                 )
             )
 
-        # A dependency-failure alternative keeps the critic honest.
-        if capacity is None and len(out) < 3:
-            out.append(
-                HypothesisOut(
-                    cause_type="dependency_failure",
-                    statement=f"A dependency of {service} is degraded and {service} inherits it.",
-                    mechanism=(
-                        "Considered because degradation propagates from dependencies. The "
-                        "dependency health evidence is what confirms or rules this out."
-                    ),
-                    suspect_service=service,
-                    confidence=0.2,
-                    citations=topo_refs[:1] or metric_refs[:1],
+        # Always carry one alternative so the critic has something to rule out.
+        if len(out) < 3:
+            if SERVICES[service].depends_on:
+                out.append(
+                    HypothesisOut(
+                        cause_type="dependency_failure",
+                        statement=(
+                            f"A dependency of {service} is degraded and {service} inherits it."
+                        ),
+                        mechanism=(
+                            "Considered because degradation propagates from dependencies. The "
+                            "dependency health evidence is what confirms or rules this out."
+                        ),
+                        suspect_service=service,
+                        confidence=0.2,
+                        citations=topo_refs[:1] or metric_refs[:1],
+                    )
                 )
-            )
+            else:
+                out.append(
+                    HypothesisOut(
+                        cause_type="traffic_surge",
+                        statement=f"Increased demand has pushed {service} past its capacity.",
+                        mechanism=(
+                            "Considered because saturation and latency also rise under load. The "
+                            "request rate evidence is what confirms or rules this out."
+                        ),
+                        suspect_service=service,
+                        confidence=0.2,
+                        citations=metric_refs[:1],
+                    )
+                )
 
         return HypothesisSet(hypotheses=out[:3])
 
@@ -364,10 +381,12 @@ class HeuristicProvider:
         valid = ctx.valid_refs
         signals = self._signals(ctx)
         deps_healthy = bool(signals.get("dependencies_healthy", True))
+        rps_ratio = float(signals.get("rps_ratio", 1.0))
         verdicts: list[CriticVerdict] = []
 
         for index, hypothesis in enumerate(hypotheses):
             unsupported: list[str] = []
+            contradicted = False
             invalid = [c for c in hypothesis.citations if c not in valid]
             if invalid:
                 unsupported.append(f"cites references not present in the context: {invalid}")
@@ -377,8 +396,14 @@ class HeuristicProvider:
                 unsupported.append(
                     "claims a dependency is degraded, but every dependency is inside its SLO"
                 )
+                contradicted = True
+            if hypothesis.cause_type == "traffic_surge" and rps_ratio < 1.2:
+                unsupported.append(
+                    f"claims a demand increase, but request rate is {rps_ratio:.2f}x baseline"
+                )
+                contradicted = True
 
-            if unsupported and hypothesis.cause_type == "dependency_failure" and deps_healthy:
+            if contradicted:
                 verdict, score = "contradicted", 0.05
             elif unsupported:
                 verdict, score = "partially_supported", 0.45

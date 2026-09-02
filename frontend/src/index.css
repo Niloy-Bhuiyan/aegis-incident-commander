@@ -1,61 +1,71 @@
 @import 'tailwindcss';
 
 /* ---------------------------------------------------------------------------
-   Aegis design system — light, warm-neutral, spacious.
+   Aegis design system.
 
-   The product is serious infrastructure software, so the chrome stays quiet:
-   a warm off-white canvas, white cards lifted by soft layered shadow rather
-   than heavy borders, and deep desaturated signal colours that read as
-   considered rather than alarming. Type does the hierarchy work; colour is
-   reserved for meaning.
+   Dimensional layering: a deep navigation rail anchors the left edge, the
+   content sits on a light canvas, and cards rise off it through a four-step
+   elevation scale. Indigo is the brand and carries interaction; the semantic
+   palette is reserved strictly for signal, so a red badge always means a
+   breach and never decoration.
 --------------------------------------------------------------------------- */
 
 @theme {
-  /* Surfaces — warm neutrals, not clinical grey. */
-  --color-canvas: #f7f7f5;
+  /* Canvas and cards */
+  --color-canvas: #f6f7f9;
   --color-card: #ffffff;
-  --color-sunken: #fafaf9;
-  --color-line: #eceae7;
-  --color-line-strong: #ddd9d4;
+  --color-sunken: #f8f9fb;
+  --color-line: #eaecf0;
+  --color-line-strong: #d7dae0;
 
-  /* Ink — three tiers, all comfortably above 4.5:1 on card and canvas. */
-  --color-ink: #1c1917;
-  --color-ink-2: #57534e;
-  --color-ink-3: #8a827b;
+  /* Ink */
+  --color-ink: #14161c;
+  --color-ink-2: #545a67;
+  --color-ink-3: #858c9a;
 
-  /* Signal — deep and desaturated, with tinted grounds for chips. */
-  --color-ok: #15803d;
-  --color-ok-bg: #f0fdf4;
-  --color-ok-line: #bbf7d0;
+  /* Navigation rail — deep, faintly blue, so it reads as considered. */
+  --color-rail: #14161f;
+  --color-rail-2: #1c1f2b;
+  --color-rail-line: #262a38;
+  --color-rail-fg: #e8eaef;
+  --color-rail-fg-2: #9aa1b1;
 
-  --color-warn: #b45309;
-  --color-warn-bg: #fffbeb;
-  --color-warn-line: #fde68a;
+  /* Brand */
+  --color-brand: #4f46e5;
+  --color-brand-strong: #4338ca;
+  --color-brand-soft: #eef2ff;
+  --color-brand-line: #d5daff;
 
-  --color-alarm: #b91c1c;
-  --color-alarm-bg: #fef2f2;
-  --color-alarm-line: #fecaca;
+  /* Signal */
+  --color-ok: #067647;
+  --color-ok-bg: #ecfdf3;
+  --color-ok-line: #abefc6;
 
-  --color-info: #1d4ed8;
-  --color-info-bg: #eff6ff;
-  --color-info-line: #bfdbfe;
+  --color-warn: #b54708;
+  --color-warn-bg: #fffaeb;
+  --color-warn-line: #fedf89;
 
-  /* Accent: a single warm gold, used sparingly for emphasis. */
-  --color-accent: #a16207;
+  --color-alarm: #b42318;
+  --color-alarm-bg: #fef3f2;
+  --color-alarm-line: #fecdca;
+
+  --color-info: #175cd3;
+  --color-info-bg: #eff8ff;
+  --color-info-line: #b2ddff;
 
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
 
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
 
-  /* Layered elevation: two soft shadows read richer than one hard one. */
-  --shadow-xs: 0 1px 2px rgb(28 25 23 / 0.04);
-  --shadow-sm: 0 1px 2px rgb(28 25 23 / 0.04), 0 2px 6px rgb(28 25 23 / 0.05);
-  --shadow-md: 0 2px 4px rgb(28 25 23 / 0.03), 0 8px 20px rgb(28 25 23 / 0.06);
-  --shadow-lg: 0 4px 8px rgb(28 25 23 / 0.04), 0 16px 40px rgb(28 25 23 / 0.08);
+  /* Four-step elevation. Depth is how hierarchy is expressed here. */
+  --shadow-1: 0 1px 2px rgb(16 24 40 / 0.05);
+  --shadow-2: 0 1px 3px rgb(16 24 40 / 0.06), 0 1px 2px rgb(16 24 40 / 0.04);
+  --shadow-3: 0 4px 8px -2px rgb(16 24 40 / 0.06), 0 12px 24px -6px rgb(16 24 40 / 0.08);
+  --shadow-4: 0 8px 16px -6px rgb(16 24 40 / 0.06), 0 28px 56px -12px rgb(16 24 40 / 0.16);
 }
 
 @layer base {
@@ -72,28 +82,29 @@
     font-family: var(--font-sans);
     font-size: 14px;
     line-height: 1.6;
-    letter-spacing: -0.005em;
+    letter-spacing: -0.006em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
-  h1,
+  h1 {
+    letter-spacing: -0.033em;
+  }
   h2,
   h3 {
-    letter-spacing: -0.02em;
+    letter-spacing: -0.018em;
   }
 
-  /* Figures line up in columns and stop jittering as they tick. */
   .tnum {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum' 1;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-info);
+    outline: 2px solid var(--color-brand);
     outline-offset: 2px;
     border-radius: 6px;
   }
@@ -113,16 +124,37 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #dcd8d3;
-    border: 3px solid var(--color-canvas);
+    background: #d3d7de;
+    border: 3px solid transparent;
+    background-clip: content-box;
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #c7c2bc;
+    background: #b9bfc9;
+    background-clip: content-box;
   }
 }
 
 @layer components {
+  /* A hairline top highlight is what separates a card from a grey rectangle. */
+  .surface {
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0)) padding-box,
+      var(--color-card);
+  }
+
+  .rail-active {
+    background: linear-gradient(90deg, rgb(79 70 229 / 0.22), rgb(79 70 229 / 0.06));
+    box-shadow: inset 2px 0 0 var(--color-brand);
+  }
+
+  .brand-mark {
+    background: linear-gradient(140deg, #6366f1, #4338ca 55%, #3730a3);
+    box-shadow:
+      0 1px 2px rgb(16 24 40 / 0.2),
+      inset 0 1px 0 rgb(255 255 255 / 0.22);
+  }
+
   .kbd {
     display: inline-flex;
     align-items: center;
@@ -134,7 +166,6 @@
     border-bottom-width: 2px;
     border-radius: 6px;
     background: var(--color-card);
-    box-shadow: var(--shadow-xs);
     color: var(--color-ink-2);
     font-family: var(--font-mono);
     font-size: 10px;
@@ -142,21 +173,20 @@
     line-height: 1;
   }
 
-  /* Only animates while data is genuinely fresh. */
   .pulse-dot {
     animation: aegis-pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
-  /* Interactive cards lift very slightly; enough to feel responsive. */
+  /* Interactive surfaces climb one elevation step on hover. */
   .lift {
     transition:
-      box-shadow 200ms ease,
-      transform 200ms ease,
-      border-color 200ms ease;
+      box-shadow 220ms cubic-bezier(0.2, 0, 0, 1),
+      transform 220ms cubic-bezier(0.2, 0, 0, 1),
+      border-color 220ms ease;
   }
   .lift:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-1px);
+    box-shadow: var(--shadow-3);
+    transform: translateY(-2px);
   }
 }
 
@@ -167,8 +197,8 @@
     transform: scale(1);
   }
   50% {
-    opacity: 0.45;
-    transform: scale(0.86);
+    opacity: 0.4;
+    transform: scale(0.82);
   }
 }
 
@@ -186,7 +216,7 @@
   }
 }
 
-/* React Flow — attribution kept (no Pro licence), styled to match. */
+/* React Flow — attribution kept (no Pro licence), restyled to match. */
 .react-flow__attribution {
   background: transparent;
 }
@@ -195,7 +225,7 @@
   font-size: 9px;
 }
 .react-flow__controls {
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-3);
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--color-line);

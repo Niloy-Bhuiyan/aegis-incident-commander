@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { Markdown } from '../components/Markdown'
 import { IconDoc, IconSearch } from '../components/icons'
 import { Badge, Card, Empty } from '../components/ui'
 import { useDocument, useDocuments, useSearch } from '../hooks/queries'
@@ -40,7 +41,7 @@ export function KnowledgeBase() {
             placeholder="connection pool exhaustion during replica maintenance"
             aria-label="Search the knowledge base"
             data-testid="kb-search"
-            className="h-11 w-full rounded-lg border border-line-strong bg-card pr-4 pl-10 text-[13.5px] text-ink shadow-xs transition-colors duration-200 outline-none placeholder:text-ink-3 focus:border-info"
+            className="h-11 w-full rounded-lg border border-line-strong bg-card pr-4 pl-10 text-[13.5px] text-ink shadow-1 transition-colors duration-200 outline-none placeholder:text-ink-3 focus:border-info"
           />
         </div>
 
@@ -50,7 +51,7 @@ export function KnowledgeBase() {
               hits.map((hit, index) => (
                 <article
                   key={hit.chunk_id}
-                  className="rounded-lg border border-line bg-card px-4 py-3.5 shadow-xs"
+                  className="rounded-lg border border-line bg-card px-4 py-3.5 shadow-1"
                 >
                   <div className="flex flex-wrap items-center gap-2.5">
                     <span className="tnum rounded-md border border-warn-line bg-warn-bg px-1.5 py-0.5 text-[11px] font-semibold text-warn">
@@ -130,9 +131,9 @@ export function KnowledgeBase() {
                   ))}
                 </div>
               )}
-              <pre className="max-h-[620px] overflow-auto font-sans text-[13px] leading-relaxed whitespace-pre-wrap text-ink-2">
-                {document.content}
-              </pre>
+              <div className="max-h-[620px] overflow-auto pr-1">
+                <Markdown content={document.content} />
+              </div>
             </>
           ) : (
             <Empty icon={<IconDoc size={17} />}>

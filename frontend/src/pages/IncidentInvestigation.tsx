@@ -348,7 +348,7 @@ export function IncidentInvestigation() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-line bg-card px-5 py-3.5 shadow-xs">
+        <div className="rounded-lg border border-line bg-card px-5 py-3.5 shadow-1">
           <WorkflowTrack state={incident.workflow_state} />
         </div>
       </header>

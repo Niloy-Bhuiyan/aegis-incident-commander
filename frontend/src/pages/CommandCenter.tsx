@@ -187,15 +187,15 @@ export function CommandCenter() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[540px] border-collapse">
               <thead>
-                <tr className="text-[11.5px] font-medium tracking-wide text-ink-3 uppercase">
-                  <th className="py-2.5 pr-3 pl-5 text-left font-medium">Service</th>
-                  <th className="hidden px-3 py-2.5 text-left font-medium md:table-cell">Trend</th>
-                  <th className="px-3 py-2.5 text-right font-medium">p95 / SLO</th>
-                  <th className="px-3 py-2.5 text-right font-medium">Errors / SLO</th>
-                  <th className="hidden px-3 py-2.5 text-right font-medium lg:table-cell">
+                <tr className="text-[11px] tracking-[0.06em] text-ink-3 uppercase">
+                  <th className="py-2.5 pr-3 pl-5 text-left font-semibold">Service</th>
+                  <th className="hidden px-3 py-2.5 text-left font-semibold md:table-cell">Trend</th>
+                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">Latency</th>
+                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">Errors</th>
+                  <th className="hidden px-3 py-2.5 text-right font-semibold whitespace-nowrap lg:table-cell">
                     Saturation
                   </th>
-                  <th className="py-2.5 pr-5 pl-3 text-right font-medium">State</th>
+                  <th className="py-2.5 pr-5 pl-3 text-right font-semibold">State</th>
                 </tr>
               </thead>
               <tbody>
@@ -293,7 +293,7 @@ export function CommandCenter() {
               {changes.slice(0, 4).map((change) => (
                 <li
                   key={change.id}
-                  className="rounded-lg border border-line bg-card px-4 py-3 shadow-xs"
+                  className="rounded-lg border border-line bg-card px-4 py-3 shadow-1"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <code className="tnum min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink">

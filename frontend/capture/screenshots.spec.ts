@@ -25,7 +25,13 @@ test('capture product screenshots', async ({ page }) => {
   await page.getByTestId('kb-search').fill('connection pool exhaustion replica maintenance')
   await expect(page.getByTestId('kb-results')).toContainText(/connection exhaustion/i)
   await page.getByRole('button', { name: /Runbook - Database Connection Exhaustion/i }).click()
-  await page.waitForTimeout(500)
+  // Clicking a document scrolls the list; reset so the shot starts at the top.
+  // The scroll container is <main>, not the window.
+  await page.evaluate(() => {
+    window.scrollTo(0, 0)
+    document.querySelector('main')?.scrollTo(0, 0)
+  })
+  await page.waitForTimeout(600)
   await page.screenshot({ path: `${SHOTS}/05-knowledge-base.png`, fullPage: true })
 
   // Demo lab.

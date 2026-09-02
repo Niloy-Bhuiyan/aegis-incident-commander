@@ -117,7 +117,7 @@ export function DemoLab() {
               <article
                 key={scenario.id}
                 className={`flex flex-col rounded-lg border px-4 py-4 transition-colors duration-200 ${
-                  running ? 'border-alarm-line bg-alarm-bg' : 'border-line bg-card shadow-xs'
+                  running ? 'border-alarm-line bg-alarm-bg' : 'border-line bg-card shadow-1'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -165,7 +165,7 @@ export function DemoLab() {
             {actions.map((action) => (
               <article
                 key={action.id}
-                className="rounded-lg border border-line bg-card px-4 py-3.5 shadow-xs"
+                className="rounded-lg border border-line bg-card px-4 py-3.5 shadow-1"
               >
                 <div className="flex items-center justify-between gap-2">
                   <code className="tnum text-[12.5px] font-semibold text-ink">{action.id}</code>

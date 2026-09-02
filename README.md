@@ -367,16 +367,18 @@ accuracy a real measurement rather than a formality.
 
 All captured from the running application by `npm run screenshots`.
 
-The console is designed for people reading it under pressure. A warm off-white
-canvas with white cards lifted by soft layered shadow rather than heavy borders;
-Plus Jakarta Sans for text and JetBrains Mono for every figure, so columns align
-and a ticking digit does not reflow the row. Colour is held back for meaning —
-deep, desaturated signal tones rather than neon — and status never depends on
-hue alone: every state carries a glyph and a word. The status strip reports
-whether telemetry is genuinely **live or stale** instead of assuming the poll
-succeeded. `g c` / `g i` / `g m` / `g k` / `g l` jump between pages, `?` lists
-the shortcuts, focus rings are visible throughout, and the layout holds from
-375px up.
+The console is designed for people reading it under pressure. A deep navigation
+rail anchors the left edge and gives the product a face; content sits on a light
+canvas and cards rise off it through a four-step elevation scale, so hierarchy
+is carried by depth rather than by borders. Plus Jakarta Sans for text and
+JetBrains Mono for every figure, so columns align and a ticking digit does not
+reflow the row. Indigo carries interaction; the semantic palette is reserved
+strictly for signal, so a red badge always means a breach and never decoration -
+and status never depends on hue alone, since every state also carries a glyph
+and a word. The status strip reports whether telemetry is genuinely **live or
+stale** instead of assuming the poll succeeded. `g c` / `g i` / `g m` / `g k` /
+`g l` jump between pages, `?` lists the shortcuts, focus rings are visible
+throughout, and the layout holds from 375px up.
 
 **Incident under investigation** — evidence, ranked hypotheses with resolvable
 citations, the critic's verdict, and the proposed action parked on the approval
@@ -481,7 +483,7 @@ docker compose up --build
 | --- | --- | --- |
 | Backend | `cd backend && pytest -q` | 98 |
 | Backend lint | `ruff check aegis tests` | — |
-| Frontend unit | `cd frontend && npm run test` | 36 |
+| Frontend unit | `cd frontend && npm run test` | 42 |
 | Frontend build | `npm run build` | — |
 | End-to-end (browser) | `npm run test:e2e` | 5 |
 

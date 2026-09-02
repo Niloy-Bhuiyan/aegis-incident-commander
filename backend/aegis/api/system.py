@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aegis.api.deps import get_engine, get_store
+from aegis.api.deps import get_source, get_store
 from aegis.api.schemas import (
     ChangeEntry,
     MetricPoint,
@@ -23,8 +23,8 @@ from aegis.detect.rules import _breaches_for
 from aegis.models import Deployment, Incident, MetricSample
 from aegis.rag.store import KnowledgeStore
 from aegis.remediation.actions import catalogue
-from aegis.sim.engine import SimulationEngine
 from aegis.sim.topology import SERVICES
+from aegis.sources.base import TelemetrySource
 from aegis.telemetry import recent_windows
 
 router = APIRouter(prefix="/api", tags=["system"])
@@ -47,7 +47,7 @@ async def health() -> dict:
 @router.get("/system/status", response_model=SystemStatus)
 async def system_status(
     session: AsyncSession = Depends(get_session),
-    engine: SimulationEngine = Depends(get_engine),
+    source: TelemetrySource = Depends(get_source),
     store: KnowledgeStore = Depends(get_store),
 ) -> SystemStatus:
     settings = get_settings()
@@ -84,7 +84,7 @@ async def system_status(
         healthy=all(s.status == "healthy" for s in services) and not active,
         services=services,
         active_incidents=len(active),
-        simulator=engine.status(),
+        simulator=source.status(),
         provider="anthropic" if settings.llm_enabled else "offline-heuristic",
         model=settings.llm_model if settings.llm_enabled else "rules/v1",
         knowledge_chunks=store.size,

@@ -22,7 +22,8 @@ from aegis.rag.embeddings import build_embedder
 from aegis.rag.ingest import ingest_directory
 from aegis.rag.store import KnowledgeStore
 from aegis.sim.engine import SimulationEngine
-from aegis.sim.persistence import sync_change_log, sync_services
+from aegis.sim.persistence import sync_services
+from aegis.sources import build_source
 
 log = structlog.get_logger(__name__)
 
@@ -36,12 +37,21 @@ async def lifespan(app: FastAPI):
     await create_all()
 
     engine = SimulationEngine()
+    # build_source may replace the topology (Prometheus mode), so it runs before
+    # anything reads SERVICES.
+    source = build_source(settings.telemetry_source, settings.telemetry_config, engine)
+    log.info(
+        "telemetry_source",
+        source=source.name,
+        remediation=source.supports_remediation,
+    )
+
     embedder = build_embedder(settings.voyage_api_key, settings.embedding_model)
     store = KnowledgeStore(embedder)
 
     async with SessionLocal() as session:
         await sync_services(session)
-        await sync_change_log(session, engine)
+        await source.sync_changes(session)
         stats = await ingest_directory(session, embedder)
         await store.load(session)
     log.info("knowledge_indexed", **stats, chunks_in_index=store.size)
@@ -50,11 +60,13 @@ async def lifespan(app: FastAPI):
     log.info("reasoning_provider", provider=provider.name, model=provider.model)
 
     def workflow_factory() -> InvestigationWorkflow:
-        return InvestigationWorkflow(SessionLocal, store, provider, engine)
+        return InvestigationWorkflow(SessionLocal, store, provider, source)
 
-    monitor = Monitor(SessionLocal, engine, workflow_factory, interval=settings.tick_seconds)
+    monitor = Monitor(SessionLocal, source, workflow_factory, interval=settings.tick_seconds)
 
-    app.state.engine = engine
+    app.state.source = source
+    # The Demo Lab is only meaningful against the simulator.
+    app.state.engine = engine if source.kind == "simulator" else None
     app.state.store = store
     app.state.monitor = monitor
     app.state.workflow_factory = workflow_factory
@@ -68,6 +80,9 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         await monitor.stop()
+        closer = getattr(source, "aclose", None)
+        if closer is not None:
+            await closer()
 
 
 def create_app() -> FastAPI:

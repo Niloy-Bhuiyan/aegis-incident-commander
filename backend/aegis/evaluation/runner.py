@@ -26,6 +26,7 @@ from aegis.rag.ingest import ingest_directory
 from aegis.rag.store import KnowledgeStore
 from aegis.sim.engine import SimulationEngine
 from aegis.sim.persistence import sync_change_log, sync_services
+from aegis.sources.simulated import SimulatedSource
 
 MAX_DETECTION_TICKS = 10
 MAX_RECOVERY_TICKS = 10
@@ -133,10 +134,12 @@ class Evaluator:
             self.settings.anthropic_api_key, self.settings.llm_model, self.settings.llm_effort
         )
 
-        def workflow_factory() -> InvestigationWorkflow:
-            return InvestigationWorkflow(self.session_factory, self.store, provider, sim)
+        source = SimulatedSource(sim)
 
-        monitor = Monitor(self.session_factory, sim, workflow_factory)
+        def workflow_factory() -> InvestigationWorkflow:
+            return InvestigationWorkflow(self.session_factory, self.store, provider, source)
+
+        monitor = Monitor(self.session_factory, source, workflow_factory)
 
         # Warm the baseline, then inject.
         for _ in range(3):

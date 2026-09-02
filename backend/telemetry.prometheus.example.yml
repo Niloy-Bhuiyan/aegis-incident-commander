@@ -1,0 +1,202 @@
+# Point Aegis at a real Prometheus.
+#
+#   export AEGIS_TELEMETRY_SOURCE=prometheus
+#   export AEGIS_TELEMETRY_CONFIG=telemetry.prometheus.example.yml
+#
+# A metrics endpoint exposes numbers, not meaning. Three things have to be
+# declared here because Prometheus cannot tell us:
+#
+#   depends_on  which service calls which - this is how Aegis distinguishes a
+#               cause from its downstream consequences
+#   slo         what "healthy" means, which is what opens an incident
+#   baseline    the steady state, which is what makes "5x baseline" a signal
+#               rather than a number
+#
+# The PromQL below assumes the common Prometheus client conventions
+# (http_requests_total, http_request_duration_seconds_bucket). Replace the
+# expressions with whatever your services actually export - Aegis only requires
+# that each returns a single instant value.
+
+prometheus:
+  url: http://localhost:9090
+  timeout_seconds: 10
+
+services:
+  - name: gateway
+    tier: edge
+    description: Public API gateway. Terminates TLS, routes to internal services.
+    depends_on: [auth-service, checkout-service]
+    tags: [customer-facing]
+    slo:
+      latency_p95_ms: 400
+      error_rate: 0.02
+      saturation: 0.92
+    baseline:
+      latency_p50_ms: 45
+      latency_p95_ms: 120
+      error_rate: 0.002
+      rps: 850
+      saturation: 0.35
+    queries:
+      latency_p50_ms: >-
+        histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{job="gateway"}[2m]))) * 1000
+      latency_p95_ms: >-
+        histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="gateway"}[2m]))) * 1000
+      error_rate: >-
+        sum(rate(http_requests_total{job="gateway",status=~"5.."}[2m]))
+        / clamp_min(sum(rate(http_requests_total{job="gateway"}[2m])), 1)
+      rps: sum(rate(http_requests_total{job="gateway"}[2m]))
+      saturation: >-
+        max(sum by (instance) (rate(process_cpu_seconds_total{job="gateway"}[2m])))
+
+  - name: auth-service
+    tier: application
+    description: Issues and validates session tokens for all authenticated routes.
+    depends_on: [session-cache]
+    tags: [critical-path]
+    slo:
+      latency_p95_ms: 180
+      error_rate: 0.015
+      saturation: 0.92
+    baseline:
+      latency_p50_ms: 22
+      latency_p95_ms: 60
+      error_rate: 0.001
+      rps: 900
+      saturation: 0.30
+    queries:
+      latency_p50_ms: >-
+        histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{job="auth-service"}[2m]))) * 1000
+      latency_p95_ms: >-
+        histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="auth-service"}[2m]))) * 1000
+      error_rate: >-
+        sum(rate(http_requests_total{job="auth-service",status=~"5.."}[2m]))
+        / clamp_min(sum(rate(http_requests_total{job="auth-service"}[2m])), 1)
+      rps: sum(rate(http_requests_total{job="auth-service"}[2m]))
+      saturation: >-
+        max(sum by (instance) (rate(process_cpu_seconds_total{job="auth-service"}[2m])))
+
+  - name: checkout-service
+    tier: application
+    description: Cart pricing, payment authorisation and order placement.
+    depends_on: [payments-db, inventory-service]
+    tags: [critical-path, revenue]
+    slo:
+      latency_p95_ms: 600
+      error_rate: 0.02
+      saturation: 0.92
+    baseline:
+      latency_p50_ms: 95
+      latency_p95_ms: 210
+      error_rate: 0.004
+      rps: 320
+      saturation: 0.42
+    queries:
+      latency_p50_ms: >-
+        histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{job="checkout-service"}[2m]))) * 1000
+      latency_p95_ms: >-
+        histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="checkout-service"}[2m]))) * 1000
+      error_rate: >-
+        sum(rate(http_requests_total{job="checkout-service",status=~"5.."}[2m]))
+        / clamp_min(sum(rate(http_requests_total{job="checkout-service"}[2m])), 1)
+      rps: sum(rate(http_requests_total{job="checkout-service"}[2m]))
+      saturation: >-
+        max(sum by (instance) (rate(process_cpu_seconds_total{job="checkout-service"}[2m])))
+
+  - name: inventory-service
+    tier: application
+    description: Stock levels and reservation holds.
+    depends_on: [payments-db]
+    slo:
+      latency_p95_ms: 300
+      error_rate: 0.02
+      saturation: 0.92
+    baseline:
+      latency_p50_ms: 35
+      latency_p95_ms: 90
+      error_rate: 0.002
+      rps: 280
+      saturation: 0.33
+    queries:
+      latency_p50_ms: >-
+        histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{job="inventory-service"}[2m]))) * 1000
+      latency_p95_ms: >-
+        histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="inventory-service"}[2m]))) * 1000
+      error_rate: >-
+        sum(rate(http_requests_total{job="inventory-service",status=~"5.."}[2m]))
+        / clamp_min(sum(rate(http_requests_total{job="inventory-service"}[2m])), 1)
+      rps: sum(rate(http_requests_total{job="inventory-service"}[2m]))
+      saturation: >-
+        max(sum by (instance) (rate(process_cpu_seconds_total{job="inventory-service"}[2m])))
+
+  - name: payments-db
+    tier: datastore
+    description: Primary PostgreSQL cluster for orders and payment intents.
+    depends_on: []
+    tags: [stateful]
+    slo:
+      latency_p95_ms: 150
+      error_rate: 0.01
+      saturation: 0.92
+    baseline:
+      latency_p50_ms: 12
+      latency_p95_ms: 38
+      error_rate: 0.0005
+      rps: 640
+      saturation: 0.45
+    queries:
+      # postgres_exporter conventions.
+      latency_p50_ms: >-
+        histogram_quantile(0.50, sum by (le) (rate(pg_stat_statements_seconds_bucket{job="payments-db"}[2m]))) * 1000
+      latency_p95_ms: >-
+        histogram_quantile(0.95, sum by (le) (rate(pg_stat_statements_seconds_bucket{job="payments-db"}[2m]))) * 1000
+      error_rate: >-
+        sum(rate(pg_stat_database_xact_rollback{job="payments-db"}[2m]))
+        / clamp_min(sum(rate(pg_stat_database_xact_commit{job="payments-db"}[2m])), 1)
+      rps: sum(rate(pg_stat_database_xact_commit{job="payments-db"}[2m]))
+      # Connection pool utilisation is the signal that identifies exhaustion.
+      saturation: >-
+        sum(pg_stat_activity_count{job="payments-db"})
+        / clamp_min(max(pg_settings_max_connections{job="payments-db"}), 1)
+
+  - name: session-cache
+    tier: datastore
+    description: Redis cache holding decoded session material.
+    depends_on: []
+    tags: [stateful]
+    slo:
+      latency_p95_ms: 40
+      error_rate: 0.01
+      saturation: 0.92
+    baseline:
+      latency_p50_ms: 2
+      latency_p95_ms: 6
+      error_rate: 0.0001
+      rps: 1200
+      saturation: 0.25
+    queries:
+      latency_p50_ms: >-
+        (rate(redis_commands_duration_seconds_total{job="session-cache"}[2m])
+        / clamp_min(rate(redis_commands_processed_total{job="session-cache"}[2m]), 1)) * 1000
+      latency_p95_ms: >-
+        (rate(redis_commands_duration_seconds_total{job="session-cache"}[2m])
+        / clamp_min(rate(redis_commands_processed_total{job="session-cache"}[2m]), 1)) * 1000 * 2.5
+      error_rate: >-
+        sum(rate(redis_commands_failed_calls_total{job="session-cache"}[2m]))
+        / clamp_min(sum(rate(redis_commands_processed_total{job="session-cache"}[2m])), 1)
+      rps: sum(rate(redis_commands_processed_total{job="session-cache"}[2m]))
+      saturation: >-
+        max(redis_memory_used_bytes{job="session-cache"})
+        / clamp_min(max(redis_memory_max_bytes{job="session-cache"}), 1)
+
+# Optional. Correlating an incident against recent changes is the single most
+# useful evidence Aegis collects, so expose deploys as a gauge whose value is the
+# deploy timestamp and whose labels carry the metadata. A CD pipeline pushing to
+# a Pushgateway is the usual way to produce this.
+changes:
+  query: aegis_change_timestamp_seconds
+  service_label: service
+  version_label: version
+  kind_label: kind
+  risk_label: risk
+  summary_label: summary

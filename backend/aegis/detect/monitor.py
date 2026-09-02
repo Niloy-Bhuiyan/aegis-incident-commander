@@ -22,27 +22,36 @@ from aegis.obs.metrics import (
     observe_service_sample,
     workflow_state_gauge,
 )
-from aegis.sim.engine import SimulationEngine
 from aegis.sim.topology import SERVICES
+from aegis.sources.base import TelemetrySource
 from aegis.telemetry import recent_windows
 
 log = structlog.get_logger(__name__)
 
-ACTIVE_STATUSES = ("open", "investigating", "awaiting_approval", "remediating", "verifying")
+ACTIVE_STATUSES = (
+    "open",
+    "investigating",
+    "awaiting_approval",
+    "remediating",
+    "verifying",
+    "awaiting_execution",
+)
 RETAIN_SAMPLES_PER_SERVICE = 240
 PRUNE_EVERY_TICKS = 60
+# Changes move far more slowly than metrics, so they get their own cadence.
+CHANGE_SYNC_EVERY_TICKS = 30
 
 
 class Monitor:
     def __init__(
         self,
         session_factory: async_sessionmaker[AsyncSession],
-        engine: SimulationEngine,
+        source: TelemetrySource,
         workflow_factory,
         interval: float = 2.0,
     ) -> None:
         self.session_factory = session_factory
-        self.engine = engine
+        self.source = source
         self.workflow_factory = workflow_factory
         self.interval = interval
         self._task: asyncio.Task | None = None
@@ -85,7 +94,7 @@ class Monitor:
     async def tick_once(self) -> None:
         self._ticks += 1
         async with self.session_factory() as session:
-            samples = self.engine.tick()
+            samples = await self.source.collect()
             for sample in samples:
                 session.add(MetricSample(**sample.as_dict()))
                 observe_service_sample(sample)
@@ -93,6 +102,11 @@ class Monitor:
 
             if self._ticks % PRUNE_EVERY_TICKS == 0:
                 await self._prune(session)
+            if self._ticks % CHANGE_SYNC_EVERY_TICKS == 0:
+                try:
+                    await self.source.sync_changes(session)
+                except Exception:  # noqa: BLE001 - a stale change log is survivable
+                    log.warning("change_log_refresh_failed")
 
             await self._verify_open_incidents(session)
             await self._detect(session)
@@ -156,7 +170,7 @@ class Monitor:
             workflow_state="detected",
             detector="slo_breach_rule/v1",
             trigger=detection.as_trigger(),
-            scenario=",".join(sorted(self.engine.active_scenarios)),
+            scenario=self.source.scenario_label(),
         )
         session.add(incident)
         await session.flush()

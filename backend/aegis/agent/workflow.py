@@ -24,9 +24,8 @@ from aegis.agent.schemas import HypothesisOut
 from aegis.models import Evidence, Hypothesis, Incident, IncidentEvent, RemediationPlan, utcnow
 from aegis.rag.store import KnowledgeStore
 from aegis.remediation.actions import ACTIONS, ActionValidationError, validate
-from aegis.remediation.executor import execute as execute_action
 from aegis.remediation.verifier import verify
-from aegis.sim.engine import SimulationEngine
+from aegis.sources.base import TelemetrySource
 from aegis.telemetry import recent_windows
 
 log = structlog.get_logger(__name__)
@@ -79,12 +78,12 @@ class InvestigationWorkflow:
         session_factory: async_sessionmaker[AsyncSession],
         store: KnowledgeStore,
         provider: LLMProvider,
-        engine: SimulationEngine,
+        source: TelemetrySource,
     ) -> None:
         self.session_factory = session_factory
         self.store = store
         self.provider = provider
-        self.engine = engine
+        self.source = source
 
     # ------------------------------------------------------------ plumbing
 
@@ -146,6 +145,12 @@ class InvestigationWorkflow:
     async def _investigate(self, session: AsyncSession, incident: Incident) -> None:
         # --- deterministic: evidence -----------------------------------
         await self._set_state(session, incident, "collecting_evidence")
+        # Correlating against changes is only useful if the change log is current,
+        # so refresh it from the source before reading it.
+        try:
+            await self.source.sync_changes(session)
+        except Exception as exc:  # noqa: BLE001 - stale changes beat no investigation
+            log.warning("change_log_refresh_failed", incident_id=incident.id, error=str(exc))
         items = await evidence_mod.collect(session, incident)
         for item in items:
             session.add(
@@ -408,11 +413,30 @@ class InvestigationWorkflow:
 
             await self._set_state(session, incident, "executing")
             incident.status = "remediating"
-            result = execute_action(self.engine, plan.action_id, plan.params)
-            plan.status = "executed"
+            result = self.source.execute(
+                plan.action_id, plan.params["service"], plan.params
+            )
             plan.executed_at = utcnow()
             plan.result = result.as_dict()
 
+            if not result.executed:
+                # A read-only telemetry source has no way to change anything.
+                # Say so and stop, rather than waiting for a recovery that
+                # nothing was done to cause.
+                plan.status = "dry_run"
+                await self._event(
+                    session,
+                    incident,
+                    "remediation_dry_run",
+                    result.detail,
+                    result.as_dict(),
+                )
+                await self._set_state(session, incident, "awaiting_execution")
+                incident.status = "awaiting_execution"
+                await session.commit()
+                return result.as_dict()
+
+            plan.status = "executed"
             await self._event(
                 session,
                 incident,

@@ -107,6 +107,31 @@ SERVICES: dict[str, ServiceSpec] = {
 }
 
 
+def set_topology(specs: dict[str, ServiceSpec]) -> None:
+    """Replace the service registry in place.
+
+    The simulated platform above is the default. Pointing Aegis at a real
+    Prometheus replaces it with the services described in the telemetry config:
+    a dependency graph and SLOs cannot be inferred from a metrics endpoint, so
+    they are declared. Mutating in place keeps every existing `from ... import
+    SERVICES` binding valid.
+    """
+    if not specs:
+        raise ValueError("topology must contain at least one service")
+    unknown = {
+        dep
+        for spec in specs.values()
+        for dep in spec.depends_on
+        if dep not in specs
+    }
+    if unknown:
+        raise ValueError(f"dependencies reference unknown services: {sorted(unknown)}")
+
+    SERVICES.clear()
+    SERVICES.update(specs)
+    topological_order()  # raises on a cycle before anything else runs
+
+
 def topological_order() -> list[str]:
     """Dependencies before dependents, so propagation can be a single pass."""
     ordered: list[str] = []

@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     otlp_endpoint: str | None = Field(default=None, alias="AEGIS_OTLP_ENDPOINT")
     service_name: str = Field(default="aegis-backend", alias="AEGIS_SERVICE_NAME")
 
+    # "simulated" runs the in-process platform; "prometheus" reads a real one.
+    telemetry_source: str = Field(default="simulated", alias="AEGIS_TELEMETRY_SOURCE")
+    telemetry_config: str | None = Field(default=None, alias="AEGIS_TELEMETRY_CONFIG")
+
     # Set by tests / eval runs to keep the background ticker off.
     autostart_simulator: bool = Field(default=True, alias="AEGIS_AUTOSTART_SIMULATOR")
 

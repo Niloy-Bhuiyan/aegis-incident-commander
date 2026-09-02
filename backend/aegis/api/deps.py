@@ -11,10 +11,25 @@ from aegis.config import get_settings
 from aegis.detect.monitor import Monitor
 from aegis.rag.store import KnowledgeStore
 from aegis.sim.engine import SimulationEngine
+from aegis.sources.base import TelemetrySource
+
+
+def get_source(request: Request) -> TelemetrySource:
+    return request.app.state.source
 
 
 def get_engine(request: Request) -> SimulationEngine:
-    return request.app.state.engine
+    """The Demo Lab only exists for the simulated platform."""
+    engine = getattr(request.app.state, "engine", None)
+    if engine is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "the Demo Lab requires the simulated telemetry source; "
+                "this instance reads a real metrics backend"
+            ),
+        )
+    return engine
 
 
 def get_store(request: Request) -> KnowledgeStore:

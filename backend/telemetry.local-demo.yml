@@ -1,0 +1,154 @@
+# Local demo config for the Prometheus adapter.
+#
+# Pairs with tools/fake_prometheus.py, a Prometheus-shaped TEST DOUBLE backed by
+# the simulator. It exists so the real HTTP adapter can be exercised end to end
+# without installing Prometheus. For a real deployment use
+# telemetry.prometheus.example.yml, which carries production PromQL.
+prometheus:
+  url: http://127.0.0.1:9090
+  timeout_seconds: 10
+services:
+- name: gateway
+  tier: edge
+  description: Public API gateway. Terminates TLS, routes to internal services.
+  depends_on:
+  - auth-service
+  - checkout-service
+  tags:
+  - customer-facing
+  slo:
+    latency_p95_ms: 400
+    error_rate: 0.02
+    saturation: 0.92
+  baseline:
+    latency_p50_ms: 45
+    latency_p95_ms: 120
+    error_rate: 0.002
+    rps: 850
+    saturation: 0.35
+  queries:
+    latency_p50_ms: aegis_demo_latency_p50_ms{service="gateway"}
+    latency_p95_ms: aegis_demo_latency_p95_ms{service="gateway"}
+    error_rate: aegis_demo_error_rate{service="gateway"}
+    rps: aegis_demo_rps{service="gateway"}
+    saturation: aegis_demo_saturation{service="gateway"}
+- name: auth-service
+  tier: application
+  description: Issues and validates session tokens for all authenticated routes.
+  depends_on:
+  - session-cache
+  tags:
+  - critical-path
+  slo:
+    latency_p95_ms: 180
+    error_rate: 0.015
+    saturation: 0.92
+  baseline:
+    latency_p50_ms: 22
+    latency_p95_ms: 60
+    error_rate: 0.001
+    rps: 900
+    saturation: 0.3
+  queries:
+    latency_p50_ms: aegis_demo_latency_p50_ms{service="auth-service"}
+    latency_p95_ms: aegis_demo_latency_p95_ms{service="auth-service"}
+    error_rate: aegis_demo_error_rate{service="auth-service"}
+    rps: aegis_demo_rps{service="auth-service"}
+    saturation: aegis_demo_saturation{service="auth-service"}
+- name: checkout-service
+  tier: application
+  description: Cart pricing, payment authorisation and order placement.
+  depends_on:
+  - payments-db
+  - inventory-service
+  tags:
+  - critical-path
+  - revenue
+  slo:
+    latency_p95_ms: 600
+    error_rate: 0.02
+    saturation: 0.92
+  baseline:
+    latency_p50_ms: 95
+    latency_p95_ms: 210
+    error_rate: 0.004
+    rps: 320
+    saturation: 0.42
+  queries:
+    latency_p50_ms: aegis_demo_latency_p50_ms{service="checkout-service"}
+    latency_p95_ms: aegis_demo_latency_p95_ms{service="checkout-service"}
+    error_rate: aegis_demo_error_rate{service="checkout-service"}
+    rps: aegis_demo_rps{service="checkout-service"}
+    saturation: aegis_demo_saturation{service="checkout-service"}
+- name: inventory-service
+  tier: application
+  description: Stock levels and reservation holds.
+  depends_on:
+  - payments-db
+  slo:
+    latency_p95_ms: 300
+    error_rate: 0.02
+    saturation: 0.92
+  baseline:
+    latency_p50_ms: 35
+    latency_p95_ms: 90
+    error_rate: 0.002
+    rps: 280
+    saturation: 0.33
+  queries:
+    latency_p50_ms: aegis_demo_latency_p50_ms{service="inventory-service"}
+    latency_p95_ms: aegis_demo_latency_p95_ms{service="inventory-service"}
+    error_rate: aegis_demo_error_rate{service="inventory-service"}
+    rps: aegis_demo_rps{service="inventory-service"}
+    saturation: aegis_demo_saturation{service="inventory-service"}
+- name: payments-db
+  tier: datastore
+  description: Primary PostgreSQL cluster for orders and payment intents.
+  depends_on: []
+  tags:
+  - stateful
+  slo:
+    latency_p95_ms: 150
+    error_rate: 0.01
+    saturation: 0.92
+  baseline:
+    latency_p50_ms: 12
+    latency_p95_ms: 38
+    error_rate: 0.0005
+    rps: 640
+    saturation: 0.45
+  queries:
+    latency_p50_ms: aegis_demo_latency_p50_ms{service="payments-db"}
+    latency_p95_ms: aegis_demo_latency_p95_ms{service="payments-db"}
+    error_rate: aegis_demo_error_rate{service="payments-db"}
+    rps: aegis_demo_rps{service="payments-db"}
+    saturation: aegis_demo_saturation{service="payments-db"}
+- name: session-cache
+  tier: datastore
+  description: Redis cache holding decoded session material.
+  depends_on: []
+  tags:
+  - stateful
+  slo:
+    latency_p95_ms: 40
+    error_rate: 0.01
+    saturation: 0.92
+  baseline:
+    latency_p50_ms: 2
+    latency_p95_ms: 6
+    error_rate: 0.0001
+    rps: 1200
+    saturation: 0.25
+  queries:
+    latency_p50_ms: aegis_demo_latency_p50_ms{service="session-cache"}
+    latency_p95_ms: aegis_demo_latency_p95_ms{service="session-cache"}
+    error_rate: aegis_demo_error_rate{service="session-cache"}
+    rps: aegis_demo_rps{service="session-cache"}
+    saturation: aegis_demo_saturation{service="session-cache"}
+changes:
+  query: aegis_demo_change_timestamp_seconds
+  service_label: service
+  version_label: version
+  kind_label: kind
+  risk_label: risk
+  summary_label: summary

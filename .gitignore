@@ -25,8 +25,8 @@ blob-report/
 *.sqlite3
 aegis.db*
 backend/aegis.db*
-eval_reports/*.json
-!eval_reports/.gitkeep
+# The published evaluation report is committed; CI runs are not.
+backend/eval_reports/ci.json
 
 # OS / editor
 .DS_Store

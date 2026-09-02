@@ -1,0 +1,525 @@
+# Aegis — Autonomous AI Incident Commander
+
+Aegis investigates production incidents the way a good on-call engineer does: it
+notices an SLO breach, works out which service the failure actually originates
+in, pulls the telemetry and change history that bear on it, reads the relevant
+runbooks and postmortems, proposes a ranked set of root causes with citations,
+has those hypotheses attacked by a critic, recommends one action from an
+approved catalogue, waits for a human to approve it, executes it in a sandbox,
+and then measures whether the platform actually recovered.
+
+It runs against a **simulated** six-service e-commerce platform with injectable
+failures. Nothing here touches real infrastructure.
+
+![Command Center](docs/screenshots/01-command-center-healthy.png)
+
+---
+
+## Contents
+
+- [The problem](#the-problem)
+- [What is AI and what is not](#what-is-ai-and-what-is-not)
+- [Architecture](#architecture)
+- [The investigation workflow](#the-investigation-workflow)
+- [Why no agent framework](#why-no-agent-framework)
+- [Retrieval](#retrieval)
+- [Safety model](#safety-model)
+- [The simulated platform](#the-simulated-platform)
+- [Screenshots](#screenshots)
+- [Running it](#running-it)
+- [Testing](#testing)
+- [Evaluation](#evaluation)
+- [Deployment](#deployment)
+- [Limitations](#limitations)
+- [Roadmap](#roadmap)
+
+---
+
+## The problem
+
+During an incident the expensive minutes are rarely spent fixing anything. They
+go on orientation: which of the twelve alerts is the cause and which are
+consequences, what changed recently, whether this has happened before, and which
+of several plausible actions is the one that addresses the cause instead of
+masking it.
+
+That work is mostly retrieval and correlation over evidence a system already
+has. It is also the part where a language model is genuinely useful — and the
+part where an ungrounded model is genuinely dangerous, because a confident wrong
+root cause sends a responder down a 20-minute detour.
+
+Aegis is built around that asymmetry. The model reasons; it never decides
+whether something is broken, and it never decides whether something is fixed.
+
+---
+
+## What is AI and what is not
+
+The dividing line is whether the task has a correct answer that ordinary code
+can compute. If it does, ordinary code computes it.
+
+| Stage | Implementation | Why |
+| --- | --- | --- |
+| Telemetry collection | Deterministic | Arithmetic over a metric store |
+| SLO breach detection | Deterministic (`slo_breach_rule/v1`) | A threshold with a sustain window. A model here would be slower, costlier, and non-reproducible |
+| Origin-service correlation | Deterministic (graph walk) | "The breaching service with no breaching dependency" is a graph property, not a judgement |
+| Evidence collection | Deterministic | Database queries |
+| Knowledge retrieval | Deterministic (BM25 + embeddings) | Ranking, not reasoning |
+| **Hypothesis generation** | **Claude** | Open-ended: map a signal shape and a change log onto a causal story |
+| **Hypothesis criticism** | **Claude** | Judging whether cited evidence actually establishes a claim |
+| **Remediation selection** | **Claude** | Choosing among plausible actions given a cause |
+| **Incident summary** | **Claude** | Natural-language explanation |
+| Action validation | Deterministic (allowlist + schema) | A safety boundary must not be probabilistic |
+| Execution | Deterministic (sandbox) | Applying a validated state transition |
+| Recovery verification | Deterministic | Whether metrics are inside SLO is a measurement |
+
+Three model calls per incident, plus one for the summary. Everything else is
+code.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph sim["Simulated platform"]
+        SIM["Metric engine<br/>dependency propagation<br/>failure injection"]
+    end
+
+    subgraph det["Deterministic core"]
+        MON["Monitor loop"]
+        DET["SLO breach detector"]
+        EV["Evidence collector"]
+        RANK["Ranking"]
+        EXE["Sandbox executor"]
+        VER["Recovery verifier"]
+    end
+
+    subgraph ai["Reasoning nodes (Claude)"]
+        HYP["Hypotheses"]
+        CRIT["Critic"]
+        PLAN["Remediation plan"]
+    end
+
+    subgraph data["Storage"]
+        PG[("PostgreSQL / SQLite")]
+        KB["Knowledge base<br/>BM25 + embeddings"]
+    end
+
+    SIM --> MON --> DET --> EV
+    EV --> KB
+    EV --> HYP --> CRIT --> RANK --> PLAN
+    KB --> HYP
+    PLAN --> HUMAN{{"Human approval"}}
+    HUMAN -->|approved| EXE --> SIM
+    EXE --> VER --> PG
+    MON --> PG
+    EV --> PG
+    RANK --> PG
+
+    API["FastAPI"] --> PG
+    UI["React console"] --> API
+```
+
+**Stack and why:**
+
+| Layer | Choice | Rationale |
+| --- | --- | --- |
+| Backend | FastAPI, SQLAlchemy 2.0 async, Alembic | Typed request/response models, async fits the LLM-call-heavy workload, migrations from day one |
+| Database | PostgreSQL in deployment, SQLite locally | One schema, one migration history; `AEGIS_DATABASE_URL` selects the driver |
+| Reasoning | `anthropic` SDK, `claude-opus-5`, structured outputs, adaptive thinking | Every node returns a schema-validated object rather than prose to parse |
+| Retrieval | BM25 + dense embeddings, reciprocal rank fusion | Lexical precision for identifiers, dense recall for topic; no vector-DB service to operate at this corpus size |
+| Observability | OpenTelemetry, Prometheus metrics, structlog | Standard, exportable, no vendor lock |
+| Frontend | Vite, React, TypeScript, Tailwind, React Flow, Recharts, TanStack Query | Fast build, typed API surface, polling fits a 2-second telemetry cadence |
+| Workflow | Hand-written state machine | See below |
+
+---
+
+## The investigation workflow
+
+```mermaid
+stateDiagram-v2
+    [*] --> detected: SLO breach sustained 3 windows
+    detected --> collecting_evidence
+    collecting_evidence --> retrieving_knowledge
+    retrieving_knowledge --> generating_hypotheses
+    generating_hypotheses --> critiquing
+    critiquing --> ranking
+    ranking --> planning_remediation
+    planning_remediation --> awaiting_approval
+    awaiting_approval --> executing: human approves
+    awaiting_approval --> awaiting_approval: human rejects
+    executing --> verifying
+    verifying --> resolved: origin and blast radius inside SLO<br/>for 3 consecutive windows
+    verifying --> verifying: not yet recovered
+    resolved --> [*]
+```
+
+Every transition writes a row to an append-only event log. The console renders
+that log as the incident timeline: what was done, what was found, what was
+decided. Model reasoning traces are not surfaced — only actions, evidence and
+conclusions.
+
+**Ranking** is deterministic, and combines three signals:
+
+```
+base  = 0.5 · model_confidence + 0.4 · critic_support + 0.1 · citation_validity
+score = base · verdict_multiplier      # supported 1.0, partial 0.8,
+                                       # unsupported 0.35, contradicted 0.15
+```
+
+`citation_validity` is the fraction of a hypothesis's citations that resolve to
+a reference actually present in the evidence bundle. A hypothesis that cites
+something the system never produced is penalised automatically, before any human
+sees it.
+
+---
+
+## Why no agent framework
+
+LangGraph, the OpenAI Agents SDK, Google ADK, Microsoft Agent Framework,
+PydanticAI and LlamaIndex Workflows were all considered. Aegis uses none of them,
+for three reasons specific to this problem:
+
+1. **The control flow is a fixed DAG with one human gate.** There is no
+   open-ended tool loop for a framework to manage. Every node's input and output
+   is known in advance. A framework would add a scheduler for a sequence that a
+   function already expresses.
+2. **State already lives in PostgreSQL.** Incidents, evidence, hypotheses, plans
+   and events are first-class rows because operators need to query them and
+   auditors need to read them. A framework's checkpointer would be a second,
+   parallel persistence model over the same facts — with the durable audit trail
+   in one and the resumability in the other.
+3. **Debuggability during an incident.** A failing node here is a stack trace in
+   one file. The cost of that choice is real — retries, fan-out and streaming are
+   hand-rolled — but this workflow needs none of them.
+
+The judgement would flip if the workflow became genuinely agentic: dynamic tool
+selection, model-decided iteration depth, or parallel sub-investigations. At
+that point LangGraph's checkpointing and interrupt model would be worth its
+dependency. The reasoning nodes are isolated behind a provider interface
+(`aegis/agent/provider.py`) precisely so that swap stays cheap.
+
+---
+
+## Retrieval
+
+Thirteen markdown documents — architecture notes, runbooks, three postmortems,
+release process, triage methodology — are chunked on section headings, embedded,
+and indexed at startup.
+
+Search is hybrid:
+
+- **BM25** over tokenised chunks, which is what actually matches
+  `jwt_signing_key_id`, `max_connections`, or a service name.
+- **Dense cosine similarity**, for topical recall when the query and the document
+  share no vocabulary.
+- **Reciprocal rank fusion** (`k = 60`) to combine the two rankings.
+
+The retrieval query is built deterministically from the measured signal shape —
+a sustained saturation breach adds "connection pool exhaustion capacity" to the
+query — so retrieval is driven by evidence rather than by the model's phrasing.
+
+**Embeddings.** The default embedder is a local hashed bag-of-words model: no
+API key, no network, deterministic in CI. It is genuinely weaker than a trained
+embedding model, which is exactly why retrieval is hybrid — BM25 carries the
+precision. Setting `VOYAGE_API_KEY` swaps in a real embedding model with no other
+change.
+
+**Citations cannot be fabricated.** Every retrieved chunk keeps its document id
+and gets a reference (`K1`, `K2`, …); telemetry evidence gets `E1`–`E4`. The
+model is told the exact set of valid references, and any citation outside that
+set is stripped from remediation plans, counted against the hypothesis's
+citation validity, and recorded as an unsupported claim.
+
+---
+
+## Safety model
+
+- **No arbitrary execution.** The model cannot emit a command. It selects an
+  `action_id` from a fixed catalogue of six actions and supplies parameters,
+  which are validated against a schema (known service names, bounded integers,
+  enumerated config keys, no extra fields) before a human is shown the proposal.
+  There is no shell, no subprocess and no network egress on the execution path.
+- **Human approval is a hard gate.** Nothing executes without a `POST` carrying a
+  named approver. Rejecting a plan leaves the platform untouched — asserted by
+  both an API test and a browser test.
+- **Authenticated mutations.** Every state-changing endpoint requires
+  `X-Aegis-Token`, compared in constant time. An unset token locks mutations
+  rather than opening them.
+- **Secrets stay in the environment.** No credentials in the repository;
+  `.env.example` documents every variable.
+- **Degraded mode is visible.** If a reasoning call fails, the incident records
+  an `llm_error` event and finishes on the offline provider rather than stalling.
+
+---
+
+## The simulated platform
+
+```mermaid
+flowchart TD
+    GW["gateway<br/><i>edge</i>"] --> AUTH["auth-service"]
+    GW --> CO["checkout-service"]
+    AUTH --> SC[("session-cache")]
+    CO --> PDB[("payments-db")]
+    CO --> INV["inventory-service"]
+    INV --> PDB
+```
+
+Latency, errors and saturation propagate from a dependency to its dependents in
+proportion to call-path coupling, so a single fault produces a realistic fan-out
+of alerts. Three failures can be injected:
+
+| Scenario | Fingerprint | Correct action |
+| --- | --- | --- |
+| Checkout latency regression | p95 ~5x baseline, error rate flat, dependencies healthy, traffic flat | `rollback_deployment` |
+| Authentication 5xx spike | error rate +21 points, latency flat, dependencies healthy | `revert_config` |
+| Payments DB connection exhaustion | saturation > 0.95, p95 ~7x, two dependents degrade together, traffic flat | `increase_connection_pool` |
+
+Applying the *wrong* action genuinely does not fix the fault — the simulator only
+clears a fault for the action that addresses it. That is what makes remediation
+accuracy a real measurement rather than a formality.
+
+---
+
+## Screenshots
+
+All captured from the running application by `npm run screenshots`.
+
+**Incident under investigation** — evidence, ranked hypotheses with resolvable
+citations, the critic's verdict, and the proposed action parked on the approval
+gate:
+
+![Incident investigation](docs/screenshots/03-incident-investigation.png)
+
+**Command Center during an incident:**
+
+![Command Center with an incident](docs/screenshots/02-command-center-incident.png)
+
+**System Map** — dependency graph with live health; degraded edges animate:
+
+![System map](docs/screenshots/04-system-map.png)
+
+**Knowledge Base** — the indexed corpus, with a live hybrid-retrieval preview
+showing BM25 and dense ranks per hit:
+
+![Knowledge base](docs/screenshots/05-knowledge-base.png)
+
+**Demo Lab** — failure injection, simulator state, and the complete remediation
+allowlist:
+
+![Demo lab](docs/screenshots/06-demo-lab.png)
+
+**Resolved incident** — the full audit timeline through recovery verification:
+
+![Resolved incident](docs/screenshots/07-incident-resolved.png)
+
+---
+
+## Running it
+
+Requires Python 3.11+ and Node 20+.
+
+```bash
+git clone https://github.com/Niloy-Bhuiyan/aegis-incident-commander.git
+cd aegis-incident-commander
+cp .env.example .env
+```
+
+**Backend:**
+
+```bash
+cd backend
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+uvicorn aegis.main:app --reload --port 8000
+```
+
+**Frontend, in a second terminal:**
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open <http://localhost:5173>, go to **Demo Lab**, and inject a failure. The
+platform ticks every two seconds; an incident opens within about three ticks and
+the investigation completes immediately after.
+
+The backend creates the SQLite schema and ingests the knowledge base on startup,
+so there is nothing else to set up.
+
+**With Claude reasoning.** Without `ANTHROPIC_API_KEY` the system runs a
+deterministic offline provider (see [Limitations](#limitations)). Set the key in
+`.env` to use `claude-opus-5`:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-...
+AEGIS_LLM_MODEL=claude-opus-5
+AEGIS_LLM_EFFORT=medium
+```
+
+**Database migrations.** SQLite is created automatically; PostgreSQL uses
+Alembic:
+
+```bash
+cd backend
+AEGIS_DATABASE_URL=postgresql+asyncpg://user:pass@host/aegis alembic upgrade head
+```
+
+**Docker Compose** brings up PostgreSQL, the API and the console together:
+
+```bash
+docker compose up --build
+```
+
+---
+
+## Testing
+
+| Suite | Command | Count |
+| --- | --- | --- |
+| Backend | `cd backend && pytest -q` | 72 |
+| Backend lint | `ruff check aegis tests` | — |
+| Frontend unit | `cd frontend && npm run test` | 20 |
+| Frontend build | `npm run build` | — |
+| End-to-end (browser) | `npm run test:e2e` | 5 |
+
+The end-to-end suite drives a real Chromium against the real backend and covers
+the full demo path: healthy platform → inject failure → detection → evidence and
+retrieval → hypotheses → proposed action → **assert nothing executed before
+approval** → approve → sandbox execution → verified recovery → resolved, plus a
+rejection path that asserts the platform is left untouched.
+
+Backend coverage includes the parts worth breaking: detection must not fire on a
+healthy platform, must not fire on a single-sample spike, must never name the
+gateway as origin when a dependency is breaching; the action allowlist must
+reject unknown actions, shell-shaped payloads, path traversal in a service name,
+extra parameters, out-of-range integers and booleans-as-integers; the Anthropic
+request must carry a strict, self-contained JSON schema and adaptive thinking,
+and must surface refusals and schema violations as errors.
+
+---
+
+## Evaluation
+
+`python -m aegis.evaluation` runs all three scenarios end to end — inject,
+detect, investigate, approve, verify — and scores them against ground truth the
+workflow never sees.
+
+Latest run (`backend/eval_reports/latest.json`, offline provider):
+
+| Metric | Result |
+| --- | --- |
+| Detection rate | 1.00 |
+| Origin service accuracy | 1.00 |
+| Root cause top-1 accuracy | 1.00 |
+| Citation validity | 1.00 |
+| Unsupported claims per hypothesis | 0.50 |
+| Retrieval hit rate | 0.67 |
+| Remediation accuracy | 1.00 |
+| Recovery success rate | 1.00 |
+| Mean detection latency | 3.0 sample windows |
+| Mean case wall time | 0.36 s |
+| Cost | $0.00 (no model calls) |
+
+**Read these numbers carefully.** They were produced by the offline heuristic
+provider, which encodes the same signal fingerprints the runbooks describe. Its
+reasoning scores are near-ceiling *by construction* and say nothing about how
+well Claude performs on this task. The metrics that are genuinely informative
+under this provider are the deterministic ones — detection rate, origin
+accuracy, recovery success — and **retrieval hit rate (0.67)**, which measures
+the real RAG pipeline: of the three documents a competent investigation should
+surface per scenario, hybrid retrieval finds two.
+
+Getting comparable numbers for the model path requires an API key; the harness
+records provider, model, token counts and cost per run so the two are directly
+comparable. See [Limitations](#limitations).
+
+CI enforces floors on detection, origin accuracy, remediation accuracy, recovery
+and citation validity at 1.0, and retrieval hit rate at 0.6, so a regression
+fails the build rather than quietly degrading.
+
+---
+
+## Deployment
+
+**Not currently deployed to a public URL.** The build environment for this
+project had no Docker daemon and no cloud credentials, so container images were
+never built and nothing was pushed to a host. Claiming a live deployment would
+be untrue.
+
+What exists and is committed:
+
+- `backend/Dockerfile` — Python 3.12 slim, non-root user, health check, runs
+  `alembic upgrade head` before serving.
+- `frontend/Dockerfile` — multi-stage Node build served by nginx with SPA
+  fallback.
+- `docker-compose.yml` — PostgreSQL 16 + API + console, wired together.
+- `render.yaml` — a Render blueprint: managed PostgreSQL, the API as a Docker
+  web service, the console as a static site.
+- `.github/workflows/ci.yml` — lint, tests, migrations up and down, evaluation
+  with enforced thresholds, frontend build and tests, and the browser suite.
+
+These are written but unverified against a live host. Treat them as a starting
+point, not a proven deploy.
+
+---
+
+## Limitations
+
+1. **The platform is simulated.** Aegis reasons over a metric engine, not real
+   infrastructure. Real telemetry is noisier, incidents overlap, and services
+   fail in ways this simulator does not model. Nothing here demonstrates that
+   the approach survives contact with production.
+2. **The Claude reasoning path is implemented but was never executed against the
+   live API in this build.** No API key was available in the build environment.
+   The request shape, structured-output schema, refusal handling, usage
+   accounting and error mapping are covered by tests against a stubbed client,
+   and the workflow, evaluation and demo all run on the deterministic offline
+   provider. Every number in this README comes from that offline provider — none
+   of them is evidence about model quality.
+3. **Not deployed, and the containers are unbuilt.** See above.
+
+---
+
+## Roadmap
+
+- Run the evaluation against `claude-opus-5` and publish the comparison against
+  the offline baseline, including cost per incident and an effort sweep.
+- Replace the local embedder with Voyage embeddings and re-measure retrieval hit
+  rate, which is the weakest measured component at 0.67.
+- Feed resolved incidents back into the knowledge base so the corpus grows from
+  the system's own postmortems.
+- Real telemetry adapters (Prometheus, OTLP) behind the same evidence interface,
+  so the simulator becomes one source among several.
+- Multiple concurrent incidents with correlation between them, which the
+  detector currently does not attempt.
+- Build and deploy the containers, then replace the deployment section with a
+  verified live URL.
+
+---
+
+## Repository layout
+
+```
+backend/
+  aegis/
+    agent/        reasoning nodes, prompts, schemas, workflow state machine
+    api/          FastAPI routers, response models, auth
+    detect/       SLO breach rules and the monitoring loop
+    evaluation/   scored end-to-end harness
+    obs/          OpenTelemetry, Prometheus, structlog
+    rag/          chunking, embeddings, hybrid store, ingest
+    remediation/  action allowlist, sandbox executor, recovery verifier
+    sim/          topology, failure scenarios, metric engine
+  alembic/        migrations
+  tests/          72 tests
+frontend/
+  src/            React console: command center, investigation, map, KB, lab
+  e2e/            Playwright browser suite
+  capture/        screenshot capture tool
+knowledge/        the indexed corpus (13 markdown documents)
+docs/screenshots/ captured from the running application
+```

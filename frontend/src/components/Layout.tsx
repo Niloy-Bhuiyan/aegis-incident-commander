@@ -2,14 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useIncidents, useSystemStatus } from '../hooks/queries'
-import {
-  IconBook,
-  IconFlask,
-  IconGauge,
-  IconIncident,
-  IconMap,
-  IconShield,
-} from './icons'
+import { IconBook, IconFlask, IconGauge, IconIncident, IconMap, IconShield } from './icons'
 import { Badge, Kbd, StatusDot, fmtAgo } from './ui'
 
 const NAV = [
@@ -20,7 +13,7 @@ const NAV = [
   { to: '/lab', label: 'Demo Lab', key: 'l', end: false, Icon: IconFlask },
 ]
 
-/** Poll cadence is 2s; anything older than three cycles is not "live". */
+/** Telemetry polls every 2s; three missed cycles is no longer "live". */
 const STALE_AFTER_MS = 6000
 
 function useKeyboardNav() {
@@ -36,14 +29,8 @@ function useKeyboardNav() {
       if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return
       if (event.metaKey || event.ctrlKey || event.altKey) return
 
-      if (event.key === '?') {
-        setShowHelp((v) => !v)
-        return
-      }
-      if (event.key === 'Escape') {
-        setShowHelp(false)
-        return
-      }
+      if (event.key === '?') return setShowHelp((v) => !v)
+      if (event.key === 'Escape') return setShowHelp(false)
       if (event.key === 'g') {
         awaitingGoto = true
         clearTimeout(timer)
@@ -79,12 +66,11 @@ function LiveIndicator({ updatedAt, failed }: { updatedAt: number; failed: boole
     return () => clearInterval(id)
   }, [])
 
-  const age = updatedAt ? Date.now() - updatedAt : Infinity
-  const stale = failed || age > STALE_AFTER_MS
+  const stale = failed || !updatedAt || Date.now() - updatedAt > STALE_AFTER_MS
 
   return (
     <span
-      className="flex items-center gap-1.5 text-[11px]"
+      className="flex items-center gap-2 text-[12.5px]"
       title={
         stale
           ? 'The console is not receiving fresh telemetry.'
@@ -94,47 +80,59 @@ function LiveIndicator({ updatedAt, failed }: { updatedAt: number; failed: boole
       <span
         aria-hidden
         className={`inline-block h-1.5 w-1.5 rounded-full ${
-          stale ? 'bg-warn' : 'bg-ok pulse'
+          stale ? 'bg-warn' : 'bg-ok pulse-dot'
         }`}
       />
-      <span className={stale ? 'text-warn' : 'text-fg-3'}>
-        {stale ? 'stale' : 'live'}
-        {updatedAt ? (
-          <span className="tnum ml-1 text-fg-3">{fmtAgo(new Date(updatedAt).toISOString())}</span>
-        ) : null}
+      <span className={stale ? 'font-medium text-warn' : 'text-ink-3'}>
+        {stale ? 'Stale' : 'Live'}
       </span>
+      {updatedAt ? (
+        <span className="tnum hidden text-[11.5px] text-ink-3 lg:inline">
+          {fmtAgo(new Date(updatedAt).toISOString())}
+        </span>
+      ) : null}
     </span>
   )
 }
 
+function MetaItem({ label, value }: { label: string; value: ReactNodeLike }) {
+  return (
+    <span className="hidden items-center gap-2 lg:flex">
+      <span className="text-[12px] text-ink-3">{label}</span>
+      <span className="tnum text-[12px] font-medium text-ink-2">{value}</span>
+    </span>
+  )
+}
+
+type ReactNodeLike = string | number | null | undefined
+
 function ShortcutSheet({ onClose }: { onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/25 p-4 backdrop-blur-[2px]"
       role="dialog"
       aria-modal="true"
       aria-label="Keyboard shortcuts"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-md border border-line-strong bg-surface p-4"
+        className="w-full max-w-md rounded-xl border border-line bg-card p-6 shadow-lg"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.07em] text-fg-2">
-          Keyboard shortcuts
-        </h2>
-        <dl className="mt-3 space-y-1.5">
+        <h2 className="text-[15px] font-semibold text-ink">Keyboard shortcuts</h2>
+        <p className="mt-1 text-[12.5px] text-ink-3">Press g, then a page key.</p>
+        <dl className="mt-5 space-y-3">
           {NAV.map((item) => (
-            <div key={item.to} className="flex items-center justify-between gap-4">
-              <dt className="text-xs text-fg-2">{item.label}</dt>
-              <dd className="flex gap-1">
+            <div key={item.to} className="flex items-center justify-between gap-6">
+              <dt className="text-[13px] text-ink-2">{item.label}</dt>
+              <dd className="flex gap-1.5">
                 <Kbd>g</Kbd>
                 <Kbd>{item.key}</Kbd>
               </dd>
             </div>
           ))}
-          <div className="flex items-center justify-between gap-4 border-t border-line pt-2">
-            <dt className="text-xs text-fg-2">Toggle this sheet</dt>
+          <div className="flex items-center justify-between gap-6 border-t border-line pt-3">
+            <dt className="text-[13px] text-ink-2">Toggle this sheet</dt>
             <dd>
               <Kbd>?</Kbd>
             </dd>
@@ -154,27 +152,25 @@ export function Layout() {
     (incident) => !['resolved', 'cancelled'].includes(incident.status),
   ).length
 
-  const sourceKind = status?.telemetry?.source ?? '—'
   const readOnly = status?.telemetry?.supports_remediation === false
 
   return (
-    <div className="flex h-full flex-col bg-base">
-      {/* Status strip: the one line that is always true and always visible. */}
-      <header className="flex h-10 shrink-0 items-center gap-3 border-b border-line bg-surface px-3">
-        <div className="flex items-center gap-2 pr-2">
-          <IconShield size={16} className="text-info" />
-          <span className="text-[13px] font-semibold tracking-tight">Aegis</span>
+    <div className="flex h-full flex-col bg-canvas">
+      <header className="flex h-14 shrink-0 items-center gap-4 border-b border-line bg-card px-4 lg:px-6">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-ink text-white shadow-xs">
+            <IconShield size={16} />
+          </span>
+          <span className="text-[15px] font-bold tracking-tight text-ink">Aegis</span>
         </div>
 
-        <div className="h-4 w-px bg-line" />
+        <span className="h-5 w-px bg-line" />
 
-        <div
-          className="flex items-center gap-1.5"
-          data-testid="platform-status"
-          title={status?.healthy ? 'All services inside SLO' : 'One or more services outside SLO'}
-        >
+        <div className="flex items-center gap-2" data-testid="platform-status">
           <StatusDot value={status?.healthy ? 'healthy' : 'degraded'} />
-          <span className={`text-xs ${status?.healthy ? 'text-ok' : 'text-alarm'}`}>
+          <span
+            className={`text-[13px] font-semibold ${status?.healthy ? 'text-ok' : 'text-alarm'}`}
+          >
             {status ? (status.healthy ? 'healthy' : 'degraded') : '—'}
           </span>
         </div>
@@ -183,25 +179,19 @@ export function Layout() {
           <Badge value="open" label={`${open} open incident${open > 1 ? 's' : ''}`} tone="alarm" />
         )}
 
-        <div className="ml-auto flex items-center gap-3 text-[11px] text-fg-3">
+        <div className="ml-auto flex items-center gap-4">
           <LiveIndicator updatedAt={dataUpdatedAt} failed={isError} />
-          <div className="hidden h-4 w-px bg-line sm:block" />
-          <span className="hidden items-center gap-1 sm:flex" title="Telemetry source">
-            <span className="text-fg-3">source</span>
-            <span className="tnum text-fg-2">{sourceKind}</span>
-            {readOnly && <Badge value="read_only" label="read only" tone="neutral" />}
-          </span>
-          <div className="hidden h-4 w-px bg-line lg:block" />
-          <span className="hidden items-center gap-1 lg:flex" title="Reasoning provider">
-            <span className="text-fg-3">reasoning</span>
-            <span className="tnum text-fg-2">{status?.model ?? '—'}</span>
-          </span>
+          <span className="hidden h-5 w-px bg-line lg:block" />
+          <MetaItem label="Source" value={status?.telemetry?.source ?? '—'} />
+          {readOnly && <Badge value="read_only" label="read only" tone="neutral" />}
+          <span className="hidden h-5 w-px bg-line lg:block" />
+          <MetaItem label="Reasoning" value={status?.model ?? '—'} />
           <button
             type="button"
             onClick={() => setShowHelp(true)}
-            className="rounded-xs px-1 text-fg-3 transition-colors duration-150 hover:text-fg"
             title="Keyboard shortcuts"
             aria-label="Keyboard shortcuts"
+            className="rounded-md transition-opacity duration-200 hover:opacity-70"
           >
             <Kbd>?</Kbd>
           </button>
@@ -211,7 +201,7 @@ export function Layout() {
       <div className="flex min-h-0 flex-1">
         <nav
           aria-label="Primary"
-          className="flex w-12 shrink-0 flex-col gap-0.5 border-r border-line bg-surface p-1.5 lg:w-[188px] lg:p-2"
+          className="flex w-[68px] shrink-0 flex-col gap-1 border-r border-line bg-card p-3 lg:w-[236px] lg:p-4"
         >
           {NAV.map(({ to, label, end, key, Icon }) => (
             <NavLink
@@ -220,41 +210,43 @@ export function Layout() {
               end={end}
               title={`${label}  (g ${key})`}
               className={({ isActive }) =>
-                `group flex items-center gap-2.5 rounded-sm px-2 py-1.5 text-xs transition-colors duration-150 ${
+                `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] transition-colors duration-200 ${
                   isActive
-                    ? 'bg-info-dim text-info'
-                    : 'text-fg-2 hover:bg-raised hover:text-fg'
+                    ? 'bg-sunken font-semibold text-ink'
+                    : 'font-medium text-ink-2 hover:bg-sunken/70 hover:text-ink'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icon size={15} className={isActive ? 'text-info' : 'text-fg-3'} />
+                  <Icon size={17} className={isActive ? 'text-ink' : 'text-ink-3'} />
                   <span className="hidden truncate lg:inline">{label}</span>
-                  <span className="ml-auto hidden lg:inline">
-                    <span className="text-[9px] text-fg-3 opacity-0 transition-opacity group-hover:opacity-100">
-                      g {key}
-                    </span>
+                  <span className="ml-auto hidden text-[11px] text-ink-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100 lg:inline">
+                    g {key}
                   </span>
                 </>
               )}
             </NavLink>
           ))}
 
-          <div className="mt-auto hidden space-y-1 border-t border-line pt-2 lg:block">
-            <div className="flex items-center justify-between px-2 text-[10px] text-fg-3">
-              <span>knowledge</span>
-              <span className="tnum text-fg-2">{status?.knowledge_chunks ?? '—'} chunks</span>
+          <div className="mt-auto hidden rounded-lg border border-line bg-sunken px-3.5 py-3 lg:block">
+            <div className="flex items-center justify-between">
+              <span className="text-[11.5px] text-ink-3">Knowledge</span>
+              <span className="tnum text-[11.5px] font-medium text-ink-2">
+                {status?.knowledge_chunks ?? '—'}
+              </span>
             </div>
-            <div className="flex items-center justify-between px-2 text-[10px] text-fg-3">
-              <span>services</span>
-              <span className="tnum text-fg-2">{status?.services.length ?? '—'}</span>
+            <div className="mt-1.5 flex items-center justify-between">
+              <span className="text-[11.5px] text-ink-3">Services</span>
+              <span className="tnum text-[11.5px] font-medium text-ink-2">
+                {status?.services.length ?? '—'}
+              </span>
             </div>
           </div>
         </nav>
 
         <main className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[1600px] p-3 lg:p-4">
+          <div className="mx-auto max-w-[1440px] px-5 py-6 lg:px-8 lg:py-8">
             <Outlet />
           </div>
         </main>

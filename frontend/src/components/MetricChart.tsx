@@ -34,7 +34,7 @@ export function MetricChart({
   data,
   metric,
   slo,
-  height = 150,
+  height = 180,
 }: {
   data: MetricPoint[]
   metric: Metric
@@ -47,42 +47,50 @@ export function MetricChart({
   const last = points.at(-1)?.value ?? 0
   const breached = threshold !== undefined && last > threshold
   const stroke = breached ? 'var(--color-alarm)' : 'var(--color-info)'
+  const tickStyle = {
+    fill: 'var(--color-ink-3)',
+    fontSize: 11,
+    fontFamily: 'JetBrains Mono',
+  }
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={points} margin={{ top: 6, right: 6, bottom: 0, left: -22 }}>
+      <AreaChart data={points} margin={{ top: 10, right: 8, bottom: 0, left: -18 }}>
         <defs>
           <linearGradient id={`fill-${metric}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={stroke} stopOpacity={0.28} />
-            <stop offset="100%" stopColor={stroke} stopOpacity={0.02} />
+            <stop offset="0%" stopColor={stroke} stopOpacity={0.18} />
+            <stop offset="100%" stopColor={stroke} stopOpacity={0.01} />
           </linearGradient>
         </defs>
-        <CartesianGrid stroke="var(--color-line)" strokeDasharray="2 3" vertical={false} />
+        <CartesianGrid stroke="var(--color-line)" vertical={false} />
         <XAxis
           dataKey="ts"
-          tick={{ fill: 'var(--color-fg-3)', fontSize: 9, fontFamily: 'JetBrains Mono' }}
-          stroke="var(--color-line)"
-          tickLine={false}
-          minTickGap={44}
-        />
-        <YAxis
-          tick={{ fill: 'var(--color-fg-3)', fontSize: 9, fontFamily: 'JetBrains Mono' }}
+          tick={tickStyle}
           stroke="var(--color-line)"
           tickLine={false}
           axisLine={false}
-          width={44}
+          minTickGap={52}
+          dy={4}
+        />
+        <YAxis
+          tick={tickStyle}
+          stroke="var(--color-line)"
+          tickLine={false}
+          axisLine={false}
+          width={48}
         />
         <Tooltip
           cursor={{ stroke: 'var(--color-line-strong)', strokeWidth: 1 }}
           contentStyle={{
-            background: 'var(--color-raised)',
-            border: '1px solid var(--color-line-strong)',
-            borderRadius: 4,
-            fontSize: 11,
-            padding: '4px 8px',
+            background: 'var(--color-card)',
+            border: '1px solid var(--color-line)',
+            borderRadius: 10,
+            boxShadow: '0 8px 20px rgb(28 25 23 / 0.08)',
+            fontSize: 12,
+            padding: '8px 12px',
           }}
-          labelStyle={{ color: 'var(--color-fg-3)', fontSize: 10 }}
-          itemStyle={{ color: 'var(--color-fg)' }}
+          labelStyle={{ color: 'var(--color-ink-3)', fontSize: 11, marginBottom: 2 }}
+          itemStyle={{ color: 'var(--color-ink)', fontWeight: 600 }}
           formatter={(value) => [
             `${Number(value).toFixed(metric === 'saturation' ? 2 : 1)}${UNITS[metric]}`,
             LABELS[metric],
@@ -92,12 +100,13 @@ export function MetricChart({
           <ReferenceLine
             y={threshold}
             stroke="var(--color-alarm)"
-            strokeDasharray="3 3"
-            strokeOpacity={0.7}
+            strokeDasharray="4 4"
+            strokeOpacity={0.55}
             label={{
               value: `SLO ${threshold}${UNITS[metric]}`,
               fill: 'var(--color-alarm)',
-              fontSize: 9,
+              fontSize: 10,
+              fontWeight: 600,
               position: 'insideTopRight',
             }}
           />
@@ -106,7 +115,7 @@ export function MetricChart({
           type="monotone"
           dataKey="value"
           stroke={stroke}
-          strokeWidth={1.6}
+          strokeWidth={2}
           fill={`url(#fill-${metric})`}
           dot={false}
           isAnimationActive={false}

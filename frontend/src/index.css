@@ -1,47 +1,61 @@
 @import 'tailwindcss';
 
 /* ---------------------------------------------------------------------------
-   Aegis design tokens.
+   Aegis design system — light, warm-neutral, spacious.
 
-   An operations console, not a marketing dashboard. Chrome is neutral and
-   near-black; saturated colour is reserved for signal, so when something turns
-   red it means something. Numbers are monospace and tabular so columns align
-   and a changing digit does not reflow the row.
+   The product is serious infrastructure software, so the chrome stays quiet:
+   a warm off-white canvas, white cards lifted by soft layered shadow rather
+   than heavy borders, and deep desaturated signal colours that read as
+   considered rather than alarming. Type does the hierarchy work; colour is
+   reserved for meaning.
 --------------------------------------------------------------------------- */
 
 @theme {
-  /* Surfaces: OLED-friendly near-black, three elevation steps. */
-  --color-base: #08090c;
-  --color-surface: #0d0f14;
-  --color-raised: #12151c;
-  --color-hover: #171b24;
-  --color-line: #1e222c;
-  --color-line-strong: #2b3140;
+  /* Surfaces — warm neutrals, not clinical grey. */
+  --color-canvas: #f7f7f5;
+  --color-card: #ffffff;
+  --color-sunken: #fafaf9;
+  --color-line: #eceae7;
+  --color-line-strong: #ddd9d4;
 
-  /* Text: four steps, all >= 4.5:1 on surface except the faintest label tier. */
-  --color-fg: #e8ebf2;
-  --color-fg-2: #a6afc0;
-  --color-fg-3: #7c8598;
+  /* Ink — three tiers, all comfortably above 4.5:1 on card and canvas. */
+  --color-ink: #1c1917;
+  --color-ink-2: #57534e;
+  --color-ink-3: #8a827b;
 
-  /* Signal. Nothing else in the UI is allowed to be saturated. */
-  --color-ok: #22c55e;
-  --color-ok-dim: #10331f;
-  --color-warn: #f5a524;
-  --color-warn-dim: #3a2a09;
-  --color-alarm: #f04747;
-  --color-alarm-dim: #3d1517;
-  --color-info: #4cc2ff;
-  --color-info-dim: #0c2b3d;
+  /* Signal — deep and desaturated, with tinted grounds for chips. */
+  --color-ok: #15803d;
+  --color-ok-bg: #f0fdf4;
+  --color-ok-line: #bbf7d0;
 
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Cascadia Code', monospace;
+  --color-warn: #b45309;
+  --color-warn-bg: #fffbeb;
+  --color-warn-line: #fde68a;
 
-  --radius-xs: 3px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
+  --color-alarm: #b91c1c;
+  --color-alarm-bg: #fef2f2;
+  --color-alarm-line: #fecaca;
 
-  /* Dense scale: this is a console, screen real estate is information. */
-  --spacing: 4px;
+  --color-info: #1d4ed8;
+  --color-info-bg: #eff6ff;
+  --color-info-line: #bfdbfe;
+
+  /* Accent: a single warm gold, used sparingly for emphasis. */
+  --color-accent: #a16207;
+
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /* Layered elevation: two soft shadows read richer than one hard one. */
+  --shadow-xs: 0 1px 2px rgb(28 25 23 / 0.04);
+  --shadow-sm: 0 1px 2px rgb(28 25 23 / 0.04), 0 2px 6px rgb(28 25 23 / 0.05);
+  --shadow-md: 0 2px 4px rgb(28 25 23 / 0.03), 0 8px 20px rgb(28 25 23 / 0.06);
+  --shadow-lg: 0 4px 8px rgb(28 25 23 / 0.04), 0 16px 40px rgb(28 25 23 / 0.08);
 }
 
 @layer base {
@@ -53,79 +67,96 @@
 
   body {
     margin: 0;
-    background: var(--color-base);
-    color: var(--color-fg);
+    background: var(--color-canvas);
+    color: var(--color-ink);
     font-family: var(--font-sans);
-    font-size: 13px;
-    line-height: 1.5;
+    font-size: 14px;
+    line-height: 1.6;
+    letter-spacing: -0.005em;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
-  /* Every number in this product is tabular. Columns must not dance. */
-  .tnum,
-  code,
-  pre,
-  kbd {
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
+  }
+
+  /* Figures line up in columns and stop jittering as they tick. */
+  .tnum {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum' 1;
+    letter-spacing: -0.01em;
   }
 
   :focus-visible {
     outline: 2px solid var(--color-info);
     outline-offset: 2px;
-    border-radius: var(--radius-xs);
+    border-radius: 6px;
   }
 
   button:not(:disabled),
   [role='button']:not([aria-disabled='true']),
-  a[href] {
+  a[href],
+  summary {
     cursor: pointer;
   }
 
   ::-webkit-scrollbar {
-    width: 9px;
-    height: 9px;
+    width: 12px;
+    height: 12px;
   }
   ::-webkit-scrollbar-track {
-    background: var(--color-base);
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--color-line-strong);
+    background: #dcd8d3;
+    border: 3px solid var(--color-canvas);
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-fg-3);
+    background: #c7c2bc;
   }
 }
 
 @layer components {
-  /* Hairline grid lines that read as structure rather than decoration. */
-  .rule-y > * + * {
-    border-top: 1px solid var(--color-line);
-  }
-
   .kbd {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
     border: 1px solid var(--color-line-strong);
     border-bottom-width: 2px;
-    border-radius: var(--radius-xs);
-    background: var(--color-raised);
-    color: var(--color-fg-2);
+    border-radius: 6px;
+    background: var(--color-card);
+    box-shadow: var(--shadow-xs);
+    color: var(--color-ink-2);
     font-family: var(--font-mono);
     font-size: 10px;
+    font-weight: 500;
     line-height: 1;
   }
 
-  /* Live-data honesty: the pulse only runs while data is actually fresh. */
-  .pulse {
-    animation: aegis-pulse 2s ease-in-out infinite;
+  /* Only animates while data is genuinely fresh. */
+  .pulse-dot {
+    animation: aegis-pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Interactive cards lift very slightly; enough to feel responsive. */
+  .lift {
+    transition:
+      box-shadow 200ms ease,
+      transform 200ms ease,
+      border-color 200ms ease;
+  }
+  .lift:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
   }
 }
 
@@ -133,9 +164,11 @@
   0%,
   100% {
     opacity: 1;
+    transform: scale(1);
   }
   50% {
-    opacity: 0.35;
+    opacity: 0.45;
+    transform: scale(0.86);
   }
 }
 
@@ -148,21 +181,30 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  .lift:hover {
+    transform: none;
+  }
 }
 
-/* React Flow: keep the attribution (no Pro licence), just tone it down. */
+/* React Flow — attribution kept (no Pro licence), styled to match. */
 .react-flow__attribution {
   background: transparent;
 }
 .react-flow__attribution a {
-  color: var(--color-fg-3);
+  color: var(--color-ink-3);
   font-size: 9px;
 }
+.react-flow__controls {
+  box-shadow: var(--shadow-sm);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+}
 .react-flow__controls-button {
-  background: var(--color-raised);
+  background: var(--color-card);
   border-bottom: 1px solid var(--color-line);
-  fill: var(--color-fg-2);
+  fill: var(--color-ink-2);
 }
 .react-flow__controls-button:hover {
-  background: var(--color-hover);
+  background: var(--color-sunken);
 }

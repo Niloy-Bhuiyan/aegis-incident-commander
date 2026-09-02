@@ -367,14 +367,16 @@ accuracy a real measurement rather than a formality.
 
 All captured from the running application by `npm run screenshots`.
 
-The console is built as an operations tool rather than a dashboard: a dense
-8-32px scale, tabular monospace numerals so columns do not shift as digits
-change, hairline structure, and saturated colour reserved for signal — when
-something turns red it means something. Status is never conveyed by colour
-alone; every state carries a glyph and a word. The status strip reports whether
-telemetry is actually **live or stale** rather than assuming the poll succeeded.
-`g c` / `g i` / `g m` / `g k` / `g l` jump between pages and `?` lists the
-shortcuts.
+The console is designed for people reading it under pressure. A warm off-white
+canvas with white cards lifted by soft layered shadow rather than heavy borders;
+Plus Jakarta Sans for text and JetBrains Mono for every figure, so columns align
+and a ticking digit does not reflow the row. Colour is held back for meaning —
+deep, desaturated signal tones rather than neon — and status never depends on
+hue alone: every state carries a glyph and a word. The status strip reports
+whether telemetry is genuinely **live or stale** instead of assuming the poll
+succeeded. `g c` / `g i` / `g m` / `g k` / `g l` jump between pages, `?` lists
+the shortcuts, focus rings are visible throughout, and the layout holds from
+375px up.
 
 **Incident under investigation** — evidence, ranked hypotheses with resolvable
 citations, the critic's verdict, and the proposed action parked on the approval

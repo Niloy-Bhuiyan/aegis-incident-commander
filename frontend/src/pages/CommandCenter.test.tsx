@@ -81,7 +81,7 @@ describe('CommandCenter', () => {
     renderWithProviders(<CommandCenter />)
     const list = await screen.findByTestId('incident-list')
     expect(within(list).getByText(/checkout-service: latency SLO breach/)).toBeInTheDocument()
-    expect(within(list).getByText('#7')).toBeInTheDocument()
+    expect(within(list).getByText(/#7 · checkout-service/)).toBeInTheDocument()
   })
 
   it('invites the user to the Demo Lab when there are no incidents', async () => {

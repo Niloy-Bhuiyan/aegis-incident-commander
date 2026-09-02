@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
 
 /* -------------------------------------------------------------------------
-   Primitives for a dense operations console.
-   Status is never conveyed by colour alone: every state carries a glyph and a
-   word as well as a hue.
+   Primitives.
+   Type carries the hierarchy, elevation carries the grouping, and colour is
+   held back for meaning. Status always pairs a hue with a glyph and a word,
+   so nothing depends on colour perception alone.
 ------------------------------------------------------------------------- */
 
 export type Tone = 'ok' | 'warn' | 'alarm' | 'info' | 'neutral'
@@ -13,18 +14,18 @@ const TONE_TEXT: Record<Tone, string> = {
   warn: 'text-warn',
   alarm: 'text-alarm',
   info: 'text-info',
-  neutral: 'text-fg-2',
+  neutral: 'text-ink-3',
 }
 
 const TONE_CHIP: Record<Tone, string> = {
-  ok: 'bg-ok-dim text-ok border-ok/25',
-  warn: 'bg-warn-dim text-warn border-warn/25',
-  alarm: 'bg-alarm-dim text-alarm border-alarm/25',
-  info: 'bg-info-dim text-info border-info/25',
-  neutral: 'bg-raised text-fg-2 border-line-strong',
+  ok: 'bg-ok-bg text-ok border-ok-line',
+  warn: 'bg-warn-bg text-warn border-warn-line',
+  alarm: 'bg-alarm-bg text-alarm border-alarm-line',
+  info: 'bg-info-bg text-info border-info-line',
+  neutral: 'bg-sunken text-ink-2 border-line-strong',
 }
 
-/** Maps every domain state we render to a tone. Single source of truth. */
+/** Single source of truth mapping domain states onto the signal palette. */
 export function toneFor(value: string): Tone {
   switch (value) {
     case 'healthy':
@@ -59,20 +60,17 @@ export function toneFor(value: string): Tone {
 }
 
 const GLYPH: Record<Tone, string> = {
-  ok: '●', // filled circle
-  warn: '▲', // triangle
-  alarm: '■', // filled square
-  info: '◆', // diamond
-  neutral: '○', // hollow circle
+  ok: '●',
+  warn: '▲',
+  alarm: '■',
+  info: '◆',
+  neutral: '○',
 }
 
 export function StatusDot({ value, className = '' }: { value: string; className?: string }) {
   const tone = toneFor(value)
   return (
-    <span
-      aria-hidden
-      className={`${TONE_TEXT[tone]} text-[9px] leading-none ${className}`}
-    >
+    <span aria-hidden className={`${TONE_TEXT[tone]} text-[8px] leading-none ${className}`}>
       {GLYPH[tone]}
     </span>
   )
@@ -82,21 +80,17 @@ export function Badge({
   value,
   label,
   tone,
-  mono = false,
 }: {
   value: string
   label?: string
   tone?: Tone
-  mono?: boolean
 }) {
   const resolved = tone ?? toneFor(value)
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-xs border px-1.5 py-[2px] text-[10.5px] font-medium tracking-wide whitespace-nowrap ${
-        TONE_CHIP[resolved]
-      } ${mono ? 'font-mono' : ''}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11.5px] font-medium whitespace-nowrap ${TONE_CHIP[resolved]}`}
     >
-      <span aria-hidden className="text-[8px] leading-none">
+      <span aria-hidden className="text-[7px] leading-none">
         {GLYPH[resolved]}
       </span>
       {(label ?? value).replace(/_/g, ' ')}
@@ -104,13 +98,14 @@ export function Badge({
   )
 }
 
-export function Panel({
+export function Card({
   title,
   hint,
   actions,
   children,
   className = '',
-  bodyClass = 'p-3',
+  bodyClass = 'px-5 py-4',
+  interactive = false,
 }: {
   title?: ReactNode
   hint?: ReactNode
@@ -118,22 +113,21 @@ export function Panel({
   children: ReactNode
   className?: string
   bodyClass?: string
+  interactive?: boolean
 }) {
   return (
     <section
-      className={`min-w-0 rounded-md border border-line bg-surface ${className}`}
+      className={`min-w-0 rounded-lg border border-line bg-card shadow-sm ${
+        interactive ? 'lift' : ''
+      } ${className}`}
     >
       {(title || actions) && (
-        <header className="flex min-h-9 items-center justify-between gap-3 border-b border-line px-3 py-1.5">
-          <div className="flex min-w-0 items-baseline gap-2">
-            {title && (
-              <h2 className="truncate text-[11px] font-semibold uppercase tracking-[0.07em] text-fg-2">
-                {title}
-              </h2>
-            )}
-            {hint && <span className="truncate text-[11px] text-fg-3">{hint}</span>}
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+            {title && <h2 className="text-[14px] font-semibold text-ink">{title}</h2>}
+            {hint && <span className="text-[12.5px] text-ink-3">{hint}</span>}
           </div>
-          {actions && <div className="flex shrink-0 items-center gap-1.5">{actions}</div>}
+          {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </header>
       )}
       <div className={bodyClass}>{children}</div>
@@ -144,7 +138,7 @@ export function Panel({
 export function Button({
   children,
   onClick,
-  variant = 'default',
+  variant = 'secondary',
   size = 'md',
   disabled,
   title,
@@ -152,26 +146,27 @@ export function Button({
 }: {
   children: ReactNode
   onClick?: () => void
-  variant?: 'default' | 'approve' | 'danger' | 'ghost'
+  variant?: 'primary' | 'secondary' | 'approve' | 'danger' | 'ghost'
   size?: 'sm' | 'md'
   disabled?: boolean
   title?: string
   icon?: ReactNode
 }) {
   const variants = {
-    default: 'border-line-strong bg-raised text-fg hover:bg-hover',
-    approve: 'border-ok/40 bg-ok-dim text-ok hover:bg-ok/20',
-    danger: 'border-alarm/40 bg-alarm-dim text-alarm hover:bg-alarm/20',
-    ghost: 'border-transparent bg-transparent text-fg-2 hover:bg-raised hover:text-fg',
+    primary: 'border-ink bg-ink text-white hover:bg-ink-2 shadow-xs',
+    secondary: 'border-line-strong bg-card text-ink hover:bg-sunken shadow-xs',
+    approve: 'border-ok bg-ok text-white hover:brightness-110 shadow-xs',
+    danger: 'border-alarm-line bg-card text-alarm hover:bg-alarm-bg shadow-xs',
+    ghost: 'border-transparent bg-transparent text-ink-2 hover:bg-sunken hover:text-ink',
   }[variant]
-  const sizing = size === 'sm' ? 'h-6 px-2 text-[11px] gap-1' : 'h-8 px-3 text-xs gap-1.5'
+  const sizing = size === 'sm' ? 'h-8 gap-1.5 px-3 text-[12.5px]' : 'h-9 gap-2 px-4 text-[13px]'
   return (
     <button
       type="button"
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center justify-center rounded-sm border font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${variants} ${sizing}`}
+      className={`inline-flex items-center justify-center rounded-lg border font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none ${variants} ${sizing}`}
     >
       {icon}
       {children}
@@ -179,7 +174,28 @@ export function Button({
   )
 }
 
-/** A metric with its unit, and an optional threshold it is measured against. */
+/** A headline figure. Large, confident, and quiet about its label. */
+export function Stat({
+  label,
+  value,
+  hint,
+  tone = 'neutral',
+}: {
+  label: string
+  value: ReactNode
+  hint?: ReactNode
+  tone?: Tone
+}) {
+  const valueTone = tone === 'neutral' ? 'text-ink' : TONE_TEXT[tone]
+  return (
+    <div className="rounded-lg border border-line bg-card px-5 py-4 shadow-xs">
+      <div className="text-[12px] font-medium tracking-wide text-ink-3 uppercase">{label}</div>
+      <div className={`tnum mt-1.5 text-[26px] leading-none font-bold ${valueTone}`}>{value}</div>
+      {hint && <div className="mt-2 text-[12.5px] text-ink-3">{hint}</div>}
+    </div>
+  )
+}
+
 export function Metric({
   value,
   unit,
@@ -195,29 +211,33 @@ export function Metric({
 }) {
   return (
     <span className={`tnum whitespace-nowrap ${className}`}>
-      <span className={breached ? 'font-semibold text-alarm' : 'text-fg'}>{value}</span>
-      {unit && <span className="ml-0.5 text-[10px] text-fg-3">{unit}</span>}
-      {threshold !== undefined && (
-        <span className="ml-1 text-[10px] text-fg-3">/ {threshold}</span>
-      )}
+      <span className={breached ? 'font-semibold text-alarm' : 'font-medium text-ink'}>
+        {value}
+      </span>
+      {unit && <span className="ml-1 text-[11px] text-ink-3">{unit}</span>}
+      {threshold !== undefined && <span className="ml-1.5 text-[11px] text-ink-3">/ {threshold}</span>}
     </span>
-  )
-}
-
-export function Empty({ children, icon }: { children: ReactNode; icon?: ReactNode }) {
-  return (
-    <div className="flex flex-col items-center gap-2 rounded-sm border border-dashed border-line px-4 py-7 text-center">
-      {icon && <span className="text-fg-3">{icon}</span>}
-      <p className="max-w-sm text-xs text-fg-3">{children}</p>
-    </div>
   )
 }
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="min-w-0 rounded-sm border border-line bg-raised px-2 py-1.5">
-      <div className="text-[9.5px] font-medium uppercase tracking-[0.08em] text-fg-3">{label}</div>
-      <div className="mt-0.5 truncate text-xs text-fg">{children}</div>
+    <div className="min-w-0 rounded-lg border border-line bg-sunken px-3.5 py-2.5">
+      <div className="text-[11px] font-medium tracking-wide text-ink-3 uppercase">{label}</div>
+      <div className="mt-1 truncate text-[13px] font-medium text-ink">{children}</div>
+    </div>
+  )
+}
+
+export function Empty({ children, icon }: { children: ReactNode; icon?: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-line-strong bg-sunken/60 px-6 py-12 text-center">
+      {icon && (
+        <span className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-card text-ink-3 shadow-xs">
+          {icon}
+        </span>
+      )}
+      <p className="max-w-sm text-[13px] leading-relaxed text-ink-3">{children}</p>
     </div>
   )
 }

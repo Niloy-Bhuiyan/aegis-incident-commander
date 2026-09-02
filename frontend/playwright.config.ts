@@ -24,7 +24,13 @@ export default defineConfig({
     trace: 'retain-on-failure',
     viewport: { width: 1600, height: 1000 },
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      // Project-level use overrides the top-level viewport, so restate it here.
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1600, height: 1000 } },
+    },
+  ],
   webServer: [
     {
       command: `"${PYTHON}" -m uvicorn aegis.main:app --host 127.0.0.1 --port 8000`,

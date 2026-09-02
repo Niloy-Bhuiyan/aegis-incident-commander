@@ -13,9 +13,8 @@ export function Incidents() {
         <h1 className="text-[24px] leading-tight font-bold tracking-tight text-ink">
           Investigations
         </h1>
-        <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-ink-3">
-          Every incident Aegis has opened, newest first.{' '}
-          {isLoading ? '' : `${incidents?.length ?? 0} recorded, ${open.length} still open.`}
+        <p className="tnum mt-1 text-[12.5px] text-ink-3">
+          {isLoading ? '—' : `${incidents?.length ?? 0} recorded · ${open.length} open`}
         </p>
       </header>
 

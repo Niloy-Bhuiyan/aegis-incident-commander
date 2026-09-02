@@ -22,11 +22,7 @@ export function KnowledgeBase() {
         <h1 className="text-[24px] leading-tight font-bold tracking-tight text-ink">
           Knowledge Base
         </h1>
-        <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-ink-3">
-          The runbooks, architecture notes and past postmortems Aegis reads during an
-          investigation. Search here to see exactly what it would retrieve, and why each result
-          ranked where it did.
-        </p>
+        <p className="mt-1 text-[12.5px] text-ink-3">What Aegis reads during an investigation</p>
       </header>
 
       <section>

@@ -133,9 +133,8 @@ export function CommandCenter() {
         <h1 className="text-[24px] leading-tight font-bold tracking-tight text-ink">
           Command Center
         </h1>
-        <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-ink-3">
-          {total || 'Six'} services, sampled every two seconds. An incident opens automatically when
-          a service stays outside its SLO for three consecutive samples.
+        <p className="tnum mt-1 text-[12.5px] text-ink-3">
+          {total} services · sampled every 2s
         </p>
       </header>
 

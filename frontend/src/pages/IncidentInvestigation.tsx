@@ -120,11 +120,14 @@ function HypothesisCard({
         </p>
       )}
 
-      {hypothesis.unsupported_claims.map((claim) => (
-        <p key={claim} className="mt-1.5 text-[12.5px] leading-relaxed text-warn">
-          Unsupported: {claim}
-        </p>
-      ))}
+      {/* The reviewer note often already quotes the claim; do not print it twice. */}
+      {hypothesis.unsupported_claims
+        .filter((claim) => !hypothesis.critic_note.includes(claim))
+        .map((claim) => (
+          <p key={claim} className="mt-1.5 text-[12.5px] leading-relaxed text-warn">
+            Unsupported: {claim}
+          </p>
+        ))}
     </article>
   )
 }
@@ -290,12 +293,6 @@ export function IncidentInvestigation() {
         </div>
 
         <WorkflowTrack state={incident.workflow_state} />
-
-        <p className="max-w-3xl text-[12.5px] leading-relaxed text-ink-3">
-          Aegis collected the telemetry below, searched the knowledge base, proposed possible
-          causes, had them checked against the evidence, and picked one fix. It cannot run anything
-          without your approval.
-        </p>
       </header>
 
       {incident.workflow_error && (

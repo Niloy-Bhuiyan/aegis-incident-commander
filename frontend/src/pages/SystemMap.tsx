@@ -88,11 +88,7 @@ export function SystemMap() {
         <h1 className="text-[24px] leading-tight font-bold tracking-tight text-ink">
           System Map
         </h1>
-        <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-ink-3">
-          Each arrow points from a service to something it depends on. This is how Aegis separates
-          cause from consequence: when several services alarm at once, the real origin is the one
-          that is failing without any of its own dependencies failing.
-        </p>
+        <p className="mt-1 text-[12.5px] text-ink-3">Arrows point to dependencies</p>
       </header>
 
       <Card title="Dependency graph" hint="click a service for detail" bodyClass="p-0">

@@ -34,11 +34,7 @@ export function DemoLab() {
           <h1 className="text-[24px] leading-tight font-bold tracking-tight text-ink">
             Demo Lab
           </h1>
-          <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-ink-3">
-            Break the simulated platform on purpose. Pick a failure below; within a few seconds
-            Aegis will detect it, work out which service it started in, and propose a fix for you
-            to approve.
-          </p>
+          <p className="mt-1 text-[12.5px] text-ink-3">Break the platform on purpose</p>
         </div>
         <div className="flex items-center gap-2">
           {openIncident && (

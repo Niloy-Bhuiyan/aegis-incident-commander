@@ -5,11 +5,11 @@ import { useIncidents, useSystemStatus } from '../hooks/queries'
 import { Badge, Kbd, StatusDot, fmtAgo } from './ui'
 
 const NAV = [
-  { to: '/', label: 'Command Center', key: 'c', end: true, note: 'Live system health' },
-  { to: '/incidents', label: 'Investigations', key: 'i', end: false, note: 'What Aegis found' },
-  { to: '/map', label: 'System Map', key: 'm', end: false, note: 'Service dependencies' },
-  { to: '/knowledge', label: 'Knowledge Base', key: 'k', end: false, note: 'What it reads' },
-  { to: '/lab', label: 'Demo Lab', key: 'l', end: false, note: 'Break something' },
+  { to: '/', label: 'Command Center', key: 'c', end: true },
+  { to: '/incidents', label: 'Investigations', key: 'i', end: false },
+  { to: '/map', label: 'System Map', key: 'm', end: false },
+  { to: '/knowledge', label: 'Knowledge Base', key: 'k', end: false },
+  { to: '/lab', label: 'Demo Lab', key: 'l', end: false },
 ]
 
 /** Telemetry polls every 2s; three missed cycles is no longer "live". */
@@ -151,14 +151,10 @@ export function Layout() {
             <span aria-hidden className="h-[7px] w-[7px] rounded-full bg-accent" />
             <span className="text-[15px] font-semibold tracking-tight text-ink">Aegis</span>
           </div>
-          {/* One line, so a first-time visitor knows what they are looking at. */}
-          <p className="mt-1 text-[12.5px] leading-snug text-ink-3">
-            Investigates incidents, proposes a fix, waits for your approval.
-          </p>
         </div>
 
         <div className="flex flex-col px-3">
-          {NAV.map(({ to, label, end, key, note }) => (
+          {NAV.map(({ to, label, end, key }) => (
             <NavLink
               key={to}
               to={to}
@@ -171,16 +167,13 @@ export function Layout() {
               }
             >
               {({ isActive }) => (
-                <>
-                  <span
-                    className={`block text-[13.5px] ${
-                      isActive ? 'font-semibold text-ink' : 'text-ink-2'
-                    }`}
-                  >
-                    {label}
-                  </span>
-                  <span className="block text-[11.5px] text-ink-3">{note}</span>
-                </>
+                <span
+                  className={`block text-[13.5px] ${
+                    isActive ? 'font-semibold text-ink' : 'text-ink-2'
+                  }`}
+                >
+                  {label}
+                </span>
               )}
             </NavLink>
           ))}

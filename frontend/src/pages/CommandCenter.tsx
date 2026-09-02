@@ -1,11 +1,11 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
-import type { MetricPoint, ServiceHealth } from '../api/types'
+import type { IncidentSummary, MetricPoint, ServiceHealth } from '../api/types'
 import { MetricChart } from '../components/MetricChart'
 import { Sparkline } from '../components/Sparkline'
-import { IconCommit, IconIncident, TierIcon } from '../components/icons'
 import {
   Badge,
+  Button,
   Card,
   Empty,
   Metric,
@@ -23,38 +23,66 @@ import {
   useSystemStatus,
 } from '../hooks/queries'
 
+/**
+ * The one line that tells a first-time visitor what is happening and what to do
+ * about it. The only element on the page allowed a tinted background.
+ */
+function NextStep({ incident, healthy }: { incident?: IncidentSummary; healthy: boolean }) {
+  const navigate = useNavigate()
+
+  if (incident) {
+    const waiting = incident.workflow_state === 'awaiting_approval'
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-alarm-bg px-4 py-3">
+        <p className="min-w-0 text-[13px] leading-relaxed text-ink">
+          <span className="font-medium">{incident.title}.</span>{' '}
+          <span className="text-ink-2">
+            {waiting
+              ? 'Aegis has finished investigating and is waiting for you to approve or reject its proposed fix.'
+              : `Aegis is working through this incident — currently ${incident.workflow_state.replace(
+                  /_/g,
+                  ' ',
+                )}.`}
+          </span>
+        </p>
+        <Button variant="primary" onClick={() => navigate(`/incidents/${incident.id}`)}>
+          {waiting ? 'Review the fix' : 'Open investigation'}
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-sunken px-4 py-3">
+      <p className="text-[13px] leading-relaxed text-ink-2">
+        {healthy
+          ? 'Nothing is wrong right now. Break something to watch Aegis detect it, investigate, and propose a fix.'
+          : 'A service is outside its SLO. Aegis opens an incident once the breach holds for three samples.'}
+      </p>
+      <Button onClick={() => navigate('/lab')}>Open Demo Lab</Button>
+    </div>
+  )
+}
+
 function ServiceRow({ service, series }: { service: ServiceHealth; series: MetricPoint[] }) {
   const latencyBreached =
     service.latency_p95_ms !== null && service.latency_p95_ms > service.slo_latency_p95_ms
   const errorBreached = service.error_rate !== null && service.error_rate > service.slo_error_rate
-  const saturationBreached = service.saturation !== null && service.saturation > 0.92
 
   return (
-    <tr
-      data-testid={`service-${service.name}`}
-      className="border-t border-line transition-colors duration-200 hover:bg-sunken/70"
-    >
-      <td className="py-3.5 pr-3 pl-5">
-        <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line bg-sunken text-ink-3">
-            <TierIcon tier={service.tier} size={15} />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-[13.5px] font-semibold text-ink">
-              {service.name}
-            </span>
-            <span className="block text-[11.5px] text-ink-3">{service.tier}</span>
-          </span>
-        </div>
+    <tr data-testid={`service-${service.name}`} className="border-t border-line">
+      <td className="py-2.5 pr-3 pl-4">
+        <div className="text-[13px] whitespace-nowrap text-ink">{service.name}</div>
+        <div className="text-[11.5px] text-ink-3">{service.tier}</div>
       </td>
-      <td className="hidden px-3 py-3.5 md:table-cell">
+      <td className="hidden px-3 py-2.5 md:table-cell">
         <Sparkline
           values={series.map((p) => p.latency_p95_ms)}
           threshold={service.slo_latency_p95_ms}
           label={`${service.name} p95 latency trend`}
         />
       </td>
-      <td className="px-3 py-3.5 text-right">
+      <td className="px-3 py-2.5 text-right">
         <Metric
           value={fmtMs(service.latency_p95_ms)}
           threshold={fmtMs(service.slo_latency_p95_ms)}
@@ -62,7 +90,7 @@ function ServiceRow({ service, series }: { service: ServiceHealth; series: Metri
           className="text-[13px]"
         />
       </td>
-      <td className="px-3 py-3.5 text-right">
+      <td className="px-3 py-2.5 text-right">
         <Metric
           value={fmtPct(service.error_rate)}
           threshold={fmtPct(service.slo_error_rate, 1)}
@@ -70,14 +98,10 @@ function ServiceRow({ service, series }: { service: ServiceHealth; series: Metri
           className="text-[13px]"
         />
       </td>
-      <td className="hidden px-3 py-3.5 text-right lg:table-cell">
-        <Metric
-          value={fmtNum(service.saturation)}
-          breached={saturationBreached}
-          className="text-[13px]"
-        />
+      <td className="hidden px-3 py-2.5 text-right lg:table-cell">
+        <Metric value={fmtNum(service.saturation)} className="text-[13px]" />
       </td>
-      <td className="py-3.5 pr-5 pl-3 text-right">
+      <td className="py-2.5 pr-4 pl-3 text-right">
         <span title={service.breaches.join('\n') || 'Inside every SLO'}>
           <Badge value={service.status} />
         </span>
@@ -98,104 +122,66 @@ export function CommandCenter() {
   const focusService = active[0]?.service ?? 'gateway'
   const { data: focusMetrics } = useServiceMetrics(focusService)
   const focus = status?.services.find((s) => s.name === focusService)
-  const gateway = status?.services.find((s) => s.name === 'gateway')
   const degraded = (status?.services ?? []).filter((s) => s.status === 'degraded')
-  const healthyCount = (status?.services ?? []).length - degraded.length
+  const total = status?.services.length ?? 0
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[24px] leading-tight font-bold tracking-tight text-ink">
-            Command Center
-          </h1>
-          <p className="mt-1 text-[13.5px] text-ink-3">
-            {isLoading
-              ? 'Connecting to telemetry…'
-              : degraded.length
-                ? `${degraded.length} of ${status?.services.length} services outside SLO`
-                : `All ${status?.services.length ?? 0} services inside SLO`}
-          </p>
-        </div>
-        {active.length > 0 && (
-          <Link
-            to={`/incidents/${active[0].id}`}
-            className="lift flex max-w-full items-center gap-3 rounded-lg border border-alarm-line bg-alarm-bg px-4 py-2.5"
-          >
-            <IconIncident size={16} className="shrink-0 text-alarm" />
-            <span className="min-w-0">
-              <span className="block truncate text-[13px] font-semibold text-alarm">
-                {active[0].title}
-              </span>
-              <span className="block text-[11.5px] text-alarm/80">
-                {active[0].workflow_state.replace(/_/g, ' ')} · opened{' '}
-                {fmtAgo(active[0].opened_at)}
-              </span>
-            </span>
-          </Link>
-        )}
+    <div className="space-y-7">
+      <header>
+        <h1 className="text-[21px] leading-tight font-semibold tracking-tight text-ink">
+          Command Center
+        </h1>
+        <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-ink-3">
+          {total || 'Six'} services, sampled every two seconds. An incident opens automatically when
+          a service stays outside its SLO for three consecutive samples.
+        </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <NextStep incident={active[0]} healthy={Boolean(status?.healthy)} />
+
+      <div className="grid grid-cols-2 gap-x-8 gap-y-5 border-b border-line pb-6 sm:grid-cols-4">
         <Stat
-          label="Platform"
-          value={isLoading ? '—' : status?.healthy ? 'Healthy' : 'Degraded'}
-          tone={status?.healthy ? 'ok' : 'alarm'}
-          hint={`${healthyCount} of ${status?.services.length ?? 0} services inside SLO`}
+          label="Services inside SLO"
+          value={isLoading ? '—' : `${total - degraded.length}/${total}`}
+          tone={degraded.length ? 'alarm' : 'ok'}
+          hint={
+            degraded.length
+              ? `${degraded.length} of ${total} services outside SLO`
+              : 'All within budget'
+          }
         />
         <Stat
           label="Open incidents"
           value={active.length}
-          tone={active.length ? 'alarm' : 'ok'}
-          hint={active.length ? active[0].service : 'Nothing open'}
+          tone={active.length ? 'alarm' : 'neutral'}
+          hint={active.length ? active[0].service : 'None'}
         />
         <Stat
-          label="Gateway p95"
-          value={fmtMs(gateway?.latency_p95_ms ?? null)}
-          tone={
-            gateway?.latency_p95_ms && gateway.latency_p95_ms > gateway.slo_latency_p95_ms
-              ? 'alarm'
-              : 'neutral'
-          }
-          hint={`SLO ${fmtMs(gateway?.slo_latency_p95_ms)}`}
+          label={`${focusService} p95`}
+          value={fmtMs(focus?.latency_p95_ms ?? null)}
+          hint={`SLO ${fmtMs(focus?.slo_latency_p95_ms)}`}
         />
         <Stat
-          label="Gateway errors"
-          value={fmtPct(gateway?.error_rate ?? null)}
-          tone={
-            gateway?.error_rate && gateway.error_rate > gateway.slo_error_rate
-              ? 'alarm'
-              : 'neutral'
-          }
-          hint={`SLO ${fmtPct(gateway?.slo_error_rate, 1)}`}
+          label={`${focusService} errors`}
+          value={fmtPct(focus?.error_rate ?? null)}
+          hint={`SLO ${fmtPct(focus?.slo_error_rate, 1)}`}
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_336px]">
-        <Card
-          title="Services"
-          hint="latest sample against SLO"
-          bodyClass="p-0"
-          actions={
-            status ? (
-              <span className="tnum text-[12px] text-ink-3">
-                {healthyCount}/{status.services.length} healthy
-              </span>
-            ) : null
-          }
-        >
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <Card title="Services" hint="latest sample against SLO" bodyClass="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[540px] border-collapse">
+            <table className="w-full min-w-[520px] border-collapse">
               <thead>
-                <tr className="text-[11px] tracking-[0.06em] text-ink-3 uppercase">
-                  <th className="py-2.5 pr-3 pl-5 text-left font-semibold">Service</th>
-                  <th className="hidden px-3 py-2.5 text-left font-semibold md:table-cell">Trend</th>
-                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">Latency</th>
-                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">Errors</th>
-                  <th className="hidden px-3 py-2.5 text-right font-semibold whitespace-nowrap lg:table-cell">
+                <tr className="text-[11.5px] text-ink-3">
+                  <th className="py-2 pr-3 pl-4 text-left font-normal">Service</th>
+                  <th className="hidden px-3 py-2 text-left font-normal md:table-cell">Trend</th>
+                  <th className="px-3 py-2 text-right font-normal">Latency</th>
+                  <th className="px-3 py-2 text-right font-normal">Errors</th>
+                  <th className="hidden px-3 py-2 text-right font-normal lg:table-cell">
                     Saturation
                   </th>
-                  <th className="py-2.5 pr-5 pl-3 text-right font-semibold">State</th>
+                  <th className="py-2 pr-4 pl-3 text-right font-normal">State</th>
                 </tr>
               </thead>
               <tbody>
@@ -217,62 +203,43 @@ export function CommandCenter() {
               data={focusMetrics}
               metric="latency_p95_ms"
               slo={focus?.slo_latency_p95_ms}
-              height={172}
+              height={150}
             />
           ) : (
             <Empty>Waiting for telemetry.</Empty>
           )}
-          {focus && (
-            <div className="mt-4 grid grid-cols-3 gap-4 border-t border-line pt-4">
-              {[
-                ['p50', fmtMs(focus.latency_p50_ms)],
-                ['req/s', focus.rps?.toFixed(0) ?? '—'],
-                ['saturation', fmtNum(focus.saturation)],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <div className="text-[11px] font-medium tracking-wide text-ink-3 uppercase">
-                    {label}
-                  </div>
-                  <div className="tnum mt-1 text-[15px] font-semibold text-ink">{value}</div>
-                </div>
-              ))}
-            </div>
-          )}
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <Card
+          bare
           title="Incidents"
-          hint="newest first"
-          bodyClass="p-3"
           actions={
-            <Link
-              to="/incidents"
-              className="text-[12.5px] font-medium text-ink-3 transition-colors duration-200 hover:text-ink"
-            >
-              View all
-            </Link>
+            incidents?.length ? (
+              <Link
+                to="/incidents"
+                className="text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink"
+              >
+                View all
+              </Link>
+            ) : null
           }
         >
           {!incidents?.length ? (
-            <Empty icon={<IconIncident size={17} />}>
-              No incidents recorded. Inject a failure from the Demo Lab to watch the full
-              investigation run.
+            <Empty>
+              No incidents yet. Inject a failure from the Demo Lab to see one from end to end.
             </Empty>
           ) : (
-            <ul className="space-y-2" data-testid="incident-list">
+            <ul className="border-t border-line" data-testid="incident-list">
               {incidents.slice(0, 5).map((incident) => (
-                <li key={incident.id}>
+                <li key={incident.id} className="border-b border-line">
                   <Link
                     to={`/incidents/${incident.id}`}
-                    className="lift flex items-center gap-3 rounded-lg border border-line bg-card px-4 py-3"
+                    className="flex items-center gap-3 px-1 py-2.5 transition-colors duration-150 hover:bg-sunken"
                   >
-                    <Badge value={incident.severity} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-medium text-ink">
-                        {incident.title}
-                      </span>
+                      <span className="block truncate text-[13px] text-ink">{incident.title}</span>
                       <span className="tnum block text-[11.5px] text-ink-3">
                         #{incident.id} · {incident.service} · {fmtAgo(incident.opened_at)}
                       </span>
@@ -285,27 +252,23 @@ export function CommandCenter() {
           )}
         </Card>
 
-        <Card title="Change log" hint="deploys, config and capacity events" bodyClass="p-3">
+        <Card bare title="Recent changes" hint="deploys, config and capacity events">
           {!changes?.length ? (
-            <Empty icon={<IconCommit size={17} />}>No changes recorded.</Empty>
+            <Empty>No changes recorded.</Empty>
           ) : (
-            <ul className="space-y-2">
+            <ul className="border-t border-line">
               {changes.slice(0, 4).map((change) => (
-                <li
-                  key={change.id}
-                  className="rounded-lg border border-line bg-card px-4 py-3 shadow-1"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <code className="tnum min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink">
-                      {change.version}
-                    </code>
-                    <Badge value={change.kind} tone="neutral" />
-                    <Badge value={change.risk} label={`${change.risk} risk`} />
+                <li key={change.id} className="border-b border-line py-2.5">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <code className="tnum truncate text-[12.5px] text-ink">{change.version}</code>
+                    <span className="shrink-0 text-[11.5px] text-ink-3">
+                      {change.kind.replace(/_/g, ' ')} · {change.risk} risk
+                    </span>
                   </div>
-                  <p className="mt-1.5 line-clamp-2 text-[12.5px] leading-relaxed text-ink-2">
+                  <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-relaxed text-ink-2">
                     {change.change_summary}
                   </p>
-                  <p className="tnum mt-1.5 text-[11.5px] text-ink-3">
+                  <p className="tnum mt-0.5 text-[11.5px] text-ink-3">
                     {change.service} · {fmtAgo(change.ts)}
                   </p>
                 </li>

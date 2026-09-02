@@ -2,15 +2,14 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useIncidents, useSystemStatus } from '../hooks/queries'
-import { IconBook, IconFlask, IconGauge, IconIncident, IconMap, IconShield } from './icons'
 import { Badge, Kbd, StatusDot, fmtAgo } from './ui'
 
 const NAV = [
-  { to: '/', label: 'Command Center', key: 'c', end: true, Icon: IconGauge },
-  { to: '/incidents', label: 'Investigations', key: 'i', end: false, Icon: IconIncident },
-  { to: '/map', label: 'System Map', key: 'm', end: false, Icon: IconMap },
-  { to: '/knowledge', label: 'Knowledge Base', key: 'k', end: false, Icon: IconBook },
-  { to: '/lab', label: 'Demo Lab', key: 'l', end: false, Icon: IconFlask },
+  { to: '/', label: 'Command Center', key: 'c', end: true, note: 'Live system health' },
+  { to: '/incidents', label: 'Investigations', key: 'i', end: false, note: 'What Aegis found' },
+  { to: '/map', label: 'System Map', key: 'm', end: false, note: 'Service dependencies' },
+  { to: '/knowledge', label: 'Knowledge Base', key: 'k', end: false, note: 'What it reads' },
+  { to: '/lab', label: 'Demo Lab', key: 'l', end: false, note: 'Break something' },
 ]
 
 /** Telemetry polls every 2s; three missed cycles is no longer "live". */
@@ -70,7 +69,7 @@ function LiveIndicator({ updatedAt, failed }: { updatedAt: number; failed: boole
 
   return (
     <span
-      className="flex items-center gap-2 text-[12.5px]"
+      className="flex items-center gap-1.5 text-[12.5px] text-ink-3"
       title={
         stale
           ? 'The console is not receiving fresh telemetry.'
@@ -79,13 +78,13 @@ function LiveIndicator({ updatedAt, failed }: { updatedAt: number; failed: boole
     >
       <span
         aria-hidden
-        className={`inline-block h-1.5 w-1.5 rounded-full ${stale ? 'bg-warn' : 'bg-ok pulse-dot'}`}
+        className={`inline-block h-[5px] w-[5px] rounded-full ${
+          stale ? 'bg-warn' : 'bg-ok pulse-dot'
+        }`}
       />
-      <span className={stale ? 'font-semibold text-warn' : 'font-medium text-ink-2'}>
-        {stale ? 'Stale' : 'Live'}
-      </span>
-      {updatedAt ? (
-        <span className="tnum hidden text-[11.5px] text-ink-3 xl:inline">
+      {stale ? <span className="text-warn">Not updating</span> : <span>Updated live</span>}
+      {updatedAt && !stale ? (
+        <span className="tnum hidden xl:inline">
           {fmtAgo(new Date(updatedAt).toISOString())}
         </span>
       ) : null}
@@ -96,29 +95,29 @@ function LiveIndicator({ updatedAt, failed }: { updatedAt: number; failed: boole
 function ShortcutSheet({ onClose }: { onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[3px]"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Keyboard shortcuts"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl border border-line bg-card p-6 shadow-4"
+        className="w-full max-w-sm rounded-md border border-line bg-page p-5"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 className="text-[16px] font-bold text-ink">Keyboard shortcuts</h2>
-        <p className="mt-1 text-[12.5px] text-ink-3">Press g, then a page key.</p>
-        <dl className="mt-5 space-y-3">
+        <h2 className="text-[14px] font-semibold text-ink">Keyboard shortcuts</h2>
+        <p className="mt-0.5 text-[12.5px] text-ink-3">Press g, then a page key.</p>
+        <dl className="mt-4 space-y-2.5">
           {NAV.map((item) => (
             <div key={item.to} className="flex items-center justify-between gap-6">
               <dt className="text-[13px] text-ink-2">{item.label}</dt>
-              <dd className="flex gap-1.5">
+              <dd className="flex gap-1">
                 <Kbd>g</Kbd>
                 <Kbd>{item.key}</Kbd>
               </dd>
             </div>
           ))}
-          <div className="flex items-center justify-between gap-6 border-t border-line pt-3">
+          <div className="flex items-center justify-between gap-6 border-t border-line pt-2.5">
             <dt className="text-[13px] text-ink-2">Toggle this sheet</dt>
             <dd>
               <Kbd>?</Kbd>
@@ -142,110 +141,99 @@ export function Layout() {
   const readOnly = status?.telemetry?.supports_remediation === false
 
   return (
-    <div className="flex h-full bg-canvas">
-      {/* Deep navigation rail: anchors the layout and gives the product a face. */}
+    <div className="flex h-full bg-page">
       <nav
         aria-label="Primary"
-        className="flex w-[72px] shrink-0 flex-col bg-rail lg:w-[248px]"
+        className="hidden w-[228px] shrink-0 flex-col border-r border-line md:flex"
       >
-        <div className="flex h-16 items-center gap-3 px-4 lg:px-5">
-          <span className="brand-mark flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] text-white">
-            <IconShield size={18} />
-          </span>
-          <span className="hidden min-w-0 lg:block">
-            <span className="block text-[15px] leading-tight font-extrabold tracking-tight text-white">
-              Aegis
-            </span>
-            <span className="block truncate text-[11px] text-rail-fg-2">Incident Commander</span>
-          </span>
+        <div className="px-5 pt-6 pb-5">
+          <div className="text-[15px] font-semibold tracking-tight text-ink">Aegis</div>
+          {/* One line, so a first-time visitor knows what they are looking at. */}
+          <p className="mt-1 text-[12.5px] leading-snug text-ink-3">
+            Investigates incidents, proposes a fix, waits for your approval.
+          </p>
         </div>
 
-        <div className="mx-4 mb-3 hidden h-px bg-rail-line lg:block" />
-
-        <div className="flex flex-col gap-1 px-3 lg:px-4">
-          {NAV.map(({ to, label, end, key, Icon }) => (
+        <div className="flex flex-col px-3">
+          {NAV.map(({ to, label, end, key, note }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               title={`${label}  (g ${key})`}
               className={({ isActive }) =>
-                `group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] transition-colors duration-200 ${
-                  isActive
-                    ? 'rail-active font-semibold text-white'
-                    : 'font-medium text-rail-fg-2 hover:bg-rail-2 hover:text-rail-fg'
+                `rounded-sm px-2.5 py-2 transition-colors duration-150 ${
+                  isActive ? 'bg-sunken' : 'hover:bg-sunken'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icon size={17} className={isActive ? 'text-white' : 'text-rail-fg-2'} />
-                  <span className="hidden truncate lg:inline">{label}</span>
-                  <span className="ml-auto hidden font-mono text-[10.5px] text-rail-fg-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 lg:inline">
-                    g {key}
+                  <span
+                    className={`block text-[13.5px] ${
+                      isActive ? 'font-semibold text-ink' : 'text-ink-2'
+                    }`}
+                  >
+                    {label}
                   </span>
+                  <span className="block text-[11.5px] text-ink-3">{note}</span>
                 </>
               )}
             </NavLink>
           ))}
         </div>
 
-        <div className="mt-auto hidden p-4 lg:block">
-          <div className="rounded-lg border border-rail-line bg-rail-2 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[11.5px] text-rail-fg-2">Knowledge</span>
-              <span className="tnum text-[11.5px] font-semibold text-rail-fg">
-                {status?.knowledge_chunks ?? '—'}
-              </span>
-            </div>
-            <div className="mt-2 flex items-center justify-between">
-              <span className="text-[11.5px] text-rail-fg-2">Services</span>
-              <span className="tnum text-[11.5px] font-semibold text-rail-fg">
-                {status?.services.length ?? '—'}
-              </span>
-            </div>
+        <div className="mt-auto space-y-1 border-t border-line px-5 py-4 text-[12px] text-ink-3">
+          <div className="flex justify-between">
+            <span>Telemetry source</span>
+            <span className="tnum text-ink-2">{status?.telemetry?.source ?? '—'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Reasoning</span>
+            <span className="tnum text-ink-2">{status?.model ?? '—'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Knowledge</span>
+            <span className="tnum text-ink-2">{status?.knowledge_chunks ?? '—'} chunks</span>
           </div>
         </div>
       </nav>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="z-10 flex h-16 shrink-0 items-center gap-3 border-b border-line bg-card px-5 shadow-1 lg:px-7">
-          <div className="flex items-center gap-2.5" data-testid="platform-status">
+        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line px-5 lg:px-8">
+          <span className="text-[13.5px] font-semibold text-ink md:hidden">Aegis</span>
+
+          <div className="flex items-center gap-2" data-testid="platform-status">
             <StatusDot value={status?.healthy ? 'healthy' : 'degraded'} />
             <span
-              className={`text-[13.5px] font-bold ${status?.healthy ? 'text-ok' : 'text-alarm'}`}
+              className={`text-[13px] ${status?.healthy ? 'text-ink-2' : 'font-medium text-alarm'}`}
             >
               {status ? (status.healthy ? 'healthy' : 'degraded') : '—'}
             </span>
           </div>
 
           {open > 0 && (
-            <Badge value="open" label={`${open} open incident${open > 1 ? 's' : ''}`} tone="alarm" />
+            <>
+              <span className="text-ink-3">·</span>
+              <Badge value="open" label={`${open} open incident${open > 1 ? 's' : ''}`} />
+            </>
+          )}
+
+          {readOnly && (
+            <>
+              <span className="text-ink-3">·</span>
+              <span className="text-[12.5px] text-ink-3">read only</span>
+            </>
           )}
 
           <div className="ml-auto flex items-center gap-4">
             <LiveIndicator updatedAt={dataUpdatedAt} failed={isError} />
-            <span className="hidden h-5 w-px bg-line md:block" />
-            <span className="hidden items-center gap-2 md:flex" title="Telemetry source">
-              <span className="text-[12px] text-ink-3">Source</span>
-              <span className="tnum text-[12px] font-semibold text-ink-2">
-                {status?.telemetry?.source ?? '—'}
-              </span>
-            </span>
-            {readOnly && <Badge value="read_only" label="read only" tone="neutral" />}
-            <span className="hidden h-5 w-px bg-line lg:block" />
-            <span className="hidden items-center gap-2 lg:flex" title="Reasoning provider">
-              <span className="text-[12px] text-ink-3">Reasoning</span>
-              <span className="tnum text-[12px] font-semibold text-ink-2">
-                {status?.model ?? '—'}
-              </span>
-            </span>
             <button
               type="button"
               onClick={() => setShowHelp(true)}
               title="Keyboard shortcuts"
               aria-label="Keyboard shortcuts"
-              className="rounded-md transition-opacity duration-200 hover:opacity-70"
+              className="transition-opacity duration-150 hover:opacity-60"
             >
               <Kbd>?</Kbd>
             </button>
@@ -253,7 +241,7 @@ export function Layout() {
         </header>
 
         <main className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[1480px] px-5 py-6 lg:px-8 lg:py-8">
+          <div className="mx-auto max-w-[1180px] px-5 py-7 lg:px-8 lg:py-9">
             <Outlet />
           </div>
         </main>

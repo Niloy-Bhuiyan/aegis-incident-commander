@@ -367,18 +367,24 @@ accuracy a real measurement rather than a formality.
 
 All captured from the running application by `npm run screenshots`.
 
-The console is designed for people reading it under pressure. A deep navigation
-rail anchors the left edge and gives the product a face; content sits on a light
-canvas and cards rise off it through a four-step elevation scale, so hierarchy
-is carried by depth rather than by borders. Plus Jakarta Sans for text and
-JetBrains Mono for every figure, so columns align and a ticking digit does not
-reflow the row. Indigo carries interaction; the semantic palette is reserved
-strictly for signal, so a red badge always means a breach and never decoration -
-and status never depends on hue alone, since every state also carries a glyph
-and a word. The status strip reports whether telemetry is genuinely **live or
-stale** instead of assuming the poll succeeded. `g c` / `g i` / `g m` / `g k` /
-`g l` jump between pages, `?` lists the shortcuts, focus rings are visible
-throughout, and the layout holds from 375px up.
+The console is deliberately plain, and written so that someone who has never
+seen it can work out what it is and what to do. White ground, hairline rules,
+one typeface. No gradients, shadows or filled badges — hierarchy comes from type
+and whitespace, and colour appears only where it carries meaning, as a small dot
+beside a word rather than a block of fill.
+
+Every page opens with a sentence explaining what it shows, each nav item says
+what it is for, and the Command Center leads with the single next action: either
+*"Nothing is wrong right now — break something to watch Aegis work"* or *"Aegis
+has finished investigating and is waiting for you to approve or reject its
+proposed fix."* On the investigation page the sections are named in plain
+language — what is wrong, possible causes, proposed fix, what Aegis did — and
+the approval gate says so outright: nothing has run yet.
+
+The status strip reports whether telemetry is genuinely live or stale rather
+than assuming the poll succeeded. `g c` / `g i` / `g m` / `g k` / `g l` jump
+between pages, `?` lists the shortcuts, focus rings are visible throughout, and
+the layout holds from 375px up.
 
 **Incident under investigation** — evidence, ranked hypotheses with resolvable
 citations, the critic's verdict, and the proposed action parked on the approval

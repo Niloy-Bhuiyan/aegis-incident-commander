@@ -1,71 +1,43 @@
 @import 'tailwindcss';
 
 /* ---------------------------------------------------------------------------
-   Aegis design system.
+   Aegis — minimal.
 
-   Dimensional layering: a deep navigation rail anchors the left edge, the
-   content sits on a light canvas, and cards rise off it through a four-step
-   elevation scale. Indigo is the brand and carries interaction; the semantic
-   palette is reserved strictly for signal, so a red badge always means a
-   breach and never decoration.
+   White ground, hairline rules, black text. No gradients, no shadows, no
+   coloured panels. Hierarchy comes from type and whitespace; colour appears
+   only where it carries meaning, and then only as a small dot or a single word.
+   The interface should be legible at a glance to someone who has never seen it.
 --------------------------------------------------------------------------- */
 
 @theme {
-  /* Canvas and cards */
-  --color-canvas: #f6f7f9;
-  --color-card: #ffffff;
-  --color-sunken: #f8f9fb;
-  --color-line: #eaecf0;
-  --color-line-strong: #d7dae0;
+  --color-page: #ffffff;
+  --color-sunken: #fafafa;
+  --color-line: #e8e8e6;
+  --color-line-strong: #d4d4d1;
 
-  /* Ink */
-  --color-ink: #14161c;
-  --color-ink-2: #545a67;
-  --color-ink-3: #858c9a;
+  --color-ink: #16161a;
+  --color-ink-2: #61616b;
+  --color-ink-3: #92929c;
 
-  /* Navigation rail — deep, faintly blue, so it reads as considered. */
-  --color-rail: #14161f;
-  --color-rail-2: #1c1f2b;
-  --color-rail-line: #262a38;
-  --color-rail-fg: #e8eaef;
-  --color-rail-fg-2: #9aa1b1;
+  /* Status. Used as a dot, a word, or a single figure — never as a fill. */
+  --color-ok: #1a7f4b;
+  --color-warn: #9a6200;
+  --color-alarm: #c1272d;
+  --color-info: #2b5fd9;
 
-  /* Brand */
-  --color-brand: #4f46e5;
-  --color-brand-strong: #4338ca;
-  --color-brand-soft: #eef2ff;
-  --color-brand-line: #d5daff;
+  /* Faint grounds, reserved for the one thing on a page that needs attention. */
+  --color-ok-bg: #f3faf6;
+  --color-warn-bg: #fdf8ef;
+  --color-alarm-bg: #fdf5f5;
+  --color-info-bg: #f4f7fe;
+  --color-info-line: #cddcf8;
 
-  /* Signal */
-  --color-ok: #067647;
-  --color-ok-bg: #ecfdf3;
-  --color-ok-line: #abefc6;
-
-  --color-warn: #b54708;
-  --color-warn-bg: #fffaeb;
-  --color-warn-line: #fedf89;
-
-  --color-alarm: #b42318;
-  --color-alarm-bg: #fef3f2;
-  --color-alarm-line: #fecdca;
-
-  --color-info: #175cd3;
-  --color-info-bg: #eff8ff;
-  --color-info-line: #b2ddff;
-
-  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
 
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
-
-  /* Four-step elevation. Depth is how hierarchy is expressed here. */
-  --shadow-1: 0 1px 2px rgb(16 24 40 / 0.05);
-  --shadow-2: 0 1px 3px rgb(16 24 40 / 0.06), 0 1px 2px rgb(16 24 40 / 0.04);
-  --shadow-3: 0 4px 8px -2px rgb(16 24 40 / 0.06), 0 12px 24px -6px rgb(16 24 40 / 0.08);
-  --shadow-4: 0 8px 16px -6px rgb(16 24 40 / 0.06), 0 28px 56px -12px rgb(16 24 40 / 0.16);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
 }
 
 @layer base {
@@ -77,36 +49,32 @@
 
   body {
     margin: 0;
-    background: var(--color-canvas);
+    background: var(--color-page);
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-size: 14px;
     line-height: 1.6;
-    letter-spacing: -0.006em;
+    letter-spacing: -0.01em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
   }
 
   h1 {
-    letter-spacing: -0.033em;
-  }
-  h2,
-  h3 {
-    letter-spacing: -0.018em;
+    letter-spacing: -0.025em;
   }
 
   .tnum {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum' 1;
+    font-size: 0.93em;
     letter-spacing: -0.02em;
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-brand);
+    outline: 1.5px solid var(--color-ink);
     outline-offset: 2px;
-    border-radius: 6px;
+    border-radius: 3px;
   }
 
   button:not(:disabled),
@@ -117,76 +85,43 @@
   }
 
   ::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
+    width: 11px;
+    height: 11px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #d3d7de;
+    background: #dcdcda;
     border: 3px solid transparent;
     background-clip: content-box;
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #b9bfc9;
+    background: #c2c2bf;
     background-clip: content-box;
   }
 }
 
 @layer components {
-  /* A hairline top highlight is what separates a card from a grey rectangle. */
-  .surface {
-    background:
-      linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0)) padding-box,
-      var(--color-card);
-  }
-
-  .rail-active {
-    background: linear-gradient(90deg, rgb(79 70 229 / 0.22), rgb(79 70 229 / 0.06));
-    box-shadow: inset 2px 0 0 var(--color-brand);
-  }
-
-  .brand-mark {
-    background: linear-gradient(140deg, #6366f1, #4338ca 55%, #3730a3);
-    box-shadow:
-      0 1px 2px rgb(16 24 40 / 0.2),
-      inset 0 1px 0 rgb(255 255 255 / 0.22);
+  /* The only motion in the product: a live-data heartbeat. */
+  .pulse-dot {
+    animation: aegis-pulse 2.6s ease-in-out infinite;
   }
 
   .kbd {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 6px;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
     border: 1px solid var(--color-line-strong);
-    border-bottom-width: 2px;
-    border-radius: 6px;
-    background: var(--color-card);
+    border-radius: 4px;
     color: var(--color-ink-2);
     font-family: var(--font-mono);
     font-size: 10px;
-    font-weight: 500;
     line-height: 1;
-  }
-
-  .pulse-dot {
-    animation: aegis-pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-
-  /* Interactive surfaces climb one elevation step on hover. */
-  .lift {
-    transition:
-      box-shadow 220ms cubic-bezier(0.2, 0, 0, 1),
-      transform 220ms cubic-bezier(0.2, 0, 0, 1),
-      border-color 220ms ease;
-  }
-  .lift:hover {
-    box-shadow: var(--shadow-3);
-    transform: translateY(-2px);
   }
 }
 
@@ -194,11 +129,9 @@
   0%,
   100% {
     opacity: 1;
-    transform: scale(1);
   }
   50% {
-    opacity: 0.4;
-    transform: scale(0.82);
+    opacity: 0.3;
   }
 }
 
@@ -211,12 +144,9 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  .lift:hover {
-    transform: none;
-  }
 }
 
-/* React Flow — attribution kept (no Pro licence), restyled to match. */
+/* React Flow — attribution kept (no Pro licence). */
 .react-flow__attribution {
   background: transparent;
 }
@@ -225,13 +155,13 @@
   font-size: 9px;
 }
 .react-flow__controls {
-  box-shadow: var(--shadow-3);
-  border-radius: 10px;
-  overflow: hidden;
   border: 1px solid var(--color-line);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: none;
 }
 .react-flow__controls-button {
-  background: var(--color-card);
+  background: var(--color-page);
   border-bottom: 1px solid var(--color-line);
   fill: var(--color-ink-2);
 }
